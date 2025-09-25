@@ -1,7 +1,7 @@
 NemOS 
 NemOS (Neil’s Modular Operating System) is a self-hosted, web-based dashboard designed to be a personal control center for IT workflows, automation, and creative exploration. It emphasizes a modular, personal, and extensible environment for scripting, monitoring, and documentation.
 
-✨ Core Features
+✨ **Core Features**
 NemOS is built around a series of powerful, independent modules:
 
 Clipboard Hub: A persistent clipboard history with tagging, previews, and search capabilities.
@@ -26,7 +26,7 @@ AI Prompt Studio: A web UI for running local AI models (not included in deployme
 
 Desktop: Links to stand-alone kasm desktop docker container (not included in deployment)
 
-Technical Stack
+**Technical Stack**
 Frontend: A reactive, modular framework (Vue.js or Svelte) styled with Tailwind CSS.
 
 Backend: A lightweight core server using Node.js or Python (Flask/FastAPI).
@@ -35,7 +35,7 @@ Database: SQLite for primary data storage, with optional Redis for caching.
 
 
 
-⚙️ Getting Started on Ubuntu
+⚙️ **Getting Started on Ubuntu**
 These instructions assume you have git, docker, and docker-compose installed on your Ubuntu server.
 
 Clone the repository:
@@ -67,7 +67,7 @@ Clone the repository:
 
   You can check the status and logs of the server at any time with the command: `pm2 status`
 
-Access NemOS:
+**Access NemOS:**
 Once the containers are running, you can access the NemOS dashboard by navigating to http://your-server-ip:port in your web browser.
 
 ### Step 4: Final Configuration (One-Time Setup)
