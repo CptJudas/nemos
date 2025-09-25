@@ -1,5 +1,5 @@
 NemOS 
-NemOS (Neil’s Modular Operating System) is a self-hosted, web-based dashboard designed to be a personal control center for IT workflows, automation, and creative exploration. It emphasizes a modular, personal, and extensible environment for scripting, monitoring, and documentation.
+NemOS (Neil’s Modular Operating System) is a self-hosted, web-based dashboard designed to be a personal control center for IT workflows, automation, and creative exploration. It emphasizes a modular, personal, and extensible environment for scripting, monitoring, and documentation. Truthfully, I made this just for me. Suck it losers!
 
 ✨ **Core Features**
 NemOS is built around a series of powerful, independent modules:
