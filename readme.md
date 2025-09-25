@@ -1,7 +1,5 @@
 NemOS 
-NemOS (Neil’s Modular Operating System) is a self-hosted, web-based dashboard designed to be a personal control center for IT workflows, automation, and creative exploration. It emphasizes a modular, private, and extensible environment for scripting, monitoring, and documentation.
-
-The project's aesthetic is a cosmic control center meets a minimalist hacker theme, with a focus on a dark, keyboard-first interface.
+NemOS (Neil’s Modular Operating System) is a self-hosted, web-based dashboard designed to be a personal control center for IT workflows, automation, and creative exploration. It emphasizes a modular, personal, and extensible environment for scripting, monitoring, and documentation.
 
 ✨ Core Features
 NemOS is built around a series of powerful, independent modules:
@@ -10,13 +8,23 @@ Clipboard Hub: A persistent clipboard history with tagging, previews, and search
 
 Script Deck: Launch, schedule, and monitor your favorite scripts (AHK, Bash, PowerShell) from a central UI.
 
-Container Control: A visual interface to manage Docker containers and Docker Compose stacks.
+Utilites: Right now focused on stripping url and texts for web filter entries
+
+Container Control: A visual interface to manage Docker containers and Docker Compose stacks running on the NemOS system
 
 Markdown Vault: Your own personal wiki with support for Mermaid diagrams and syntax highlighting, versioned with Git.
 
 System Monitor: View real-time CPU, RAM, disk, and network statistics with configurable alerts.
 
 Network Toolkit: A suite of tools including an IP scanner, DNS lookup, and a traceroute visualizer.
+
+Asset Library: Upload and organize project files
+
+Reverse Proxy Manager: Handle reverse proxy 
+
+AI Prompt Studio: A web UI for running local AI models (not included in deployment)
+
+Desktop: Links to stand-alone kasm desktop docker container (not included in deployment)
 
 Technical Stack
 Frontend: A reactive, modular framework (Vue.js or Svelte) styled with Tailwind CSS.
@@ -25,7 +33,7 @@ Backend: A lightweight core server using Node.js or Python (Flask/FastAPI).
 
 Database: SQLite for primary data storage, with optional Redis for caching.
 
-Deployment: Containerized with Docker and Docker Compose for simple, modular deployment.
+
 
 ⚙️ Getting Started on Ubuntu
 These instructions assume you have git, docker, and docker-compose installed on your Ubuntu server.
