@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NemOS - Container Control</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://rsms.me/inter/inter.css');
+        body { font-family: 'Inter', sans-serif; }
+        .status-running { color: #48bb78; } /* text-green-500 */
+        .status-exited { color: #a0aec0; } /* text-gray-500 */
+        .status-restarting { color: #63b3ed; } /* text-blue-400 */
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 h-screen flex flex-col p-4">
+
+    <header class="mb-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            Container Control
+        </h1>
+        <button id="deploy-compose-btn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+            Deploy with Docker Compose
+        </button>
+    </header>
+
+    <main class="flex-grow overflow-y-auto">
+        <table class="w-full text-left table-auto">
+            <thead class="sticky top-0 bg-gray-800">
+                <tr>
+                    <th class="px-4 py-2 border-b border-gray-700">Name</th>
+                    <th class="px-4 py-2 border-b border-gray-700">Image</th>
+                    <th class="px-4 py-2 border-b border-gray-700">Status</th>
+                    <th class="px-4 py-2 border-b border-gray-700">Ports</th>
+                    <th class="px-4 py-2 border-b border-gray-700 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="container-list">
+                <!-- Container rows will be injected here -->
+            </tbody>
+        </table>
+    </main>
+
+    <!-- Docker Compose Modal -->
+    <div id="compose-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-3xl">
+            <h3 class="text-xl font-bold text-white mb-4">Deploy with Docker Compose</h3>
+            <textarea id="compose-content" class="w-full h-80 bg-gray-900 text-gray-200 rounded p-3 border border-gray-600 focus:ring-2 focus:ring-blue-500 text-sm font-mono" placeholder="Paste your Docker Compose YAML here..."></textarea>
+            <div class="mt-4 flex justify-end space-x-2">
+                <button id="cancel-compose-btn" class="px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors">Cancel</button>
+                <button id="deploy-compose-submit-btn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">Deploy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Content Template -->
+    <template id="log-view-template">
+        <pre id="log-content" class="bg-gray-900 text-sm font-mono p-4 rounded-lg whitespace-pre-wrap max-h-[70vh] overflow-y-auto"></pre>
+    </template>
+
+    <!-- NemOS Libraries -->
+    <script src="ux_console.js"></script>
+
+    <script>
+        // --- CONFIG & INITIALIZATION ---
+        const backendWsUrl = `ws://${window.location.hostname}:3000/api/docker/stats`;
+        const backendApiUrl = `http://${window.location.hostname}:3000/api/docker`;
+
+        // --- DOM Elements ---
+        const containerList = document.getElementById('container-list');
+        const deployComposeBtn = document.getElementById('deploy-compose-btn');
+        const composeModal = document.getElementById('compose-modal');
+        const cancelComposeBtn = document.getElementById('cancel-compose-btn');
+        const deployComposeSubmitBtn = document.getElementById('deploy-compose-submit-btn');
+        const composeContent = document.getElementById('compose-content');
+
+        // --- STATE ---
+        let containers = [];
+        let logWebSocket = null;
+        let activeLogModal = null;
+
+        // --- WebSocket for Real-time Stats ---
+        function connectWebSocket() {
+            const ws = new WebSocket(backendWsUrl);
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'all-containers') {
+                    containers = data.payload;
+                    render();
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket Error:', error);
+                NemOS.feedback.showToast('Connection to server lost. Retrying...', 'error');
+            };
+
+            ws.onclose = () => {
+                setTimeout(connectWebSocket, 3000); // Attempt to reconnect after 3 seconds
+            };
+        }
+        connectWebSocket();
+
+        // --- API CALLS ---
+        async function performAction(containerId, action) {
+            try {
+                const response = await fetch(`${backendApiUrl}/containers/${containerId}/action`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server responded with ${response.status}`);
+                }
+                const result = await response.json();
+                NemOS.feedback.showToast(result.message, 'success');
+            } catch (error) {
+                console.error(`Failed to perform action '${action}':`, error);
+                NemOS.feedback.showToast(`Action '${action}' failed.`, 'error');
+            }
+        }
+
+        async function deployCompose() {
+            const yamlContent = composeContent.value.trim();
+            if (!yamlContent) {
+                NemOS.feedback.showToast('Docker Compose content cannot be empty.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${backendApiUrl}/compose/up`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ yaml: yamlContent })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Server responded with ${response.status}`);
+                }
+                const result = await response.json();
+                NemOS.feedback.showToast(result.message, 'success');
+                composeModal.classList.add('hidden');
+                composeModal.classList.remove('flex');
+                composeContent.value = ''; // Clear textarea
+            } catch (error) {
+                console.error('Error deploying Docker Compose:', error);
+                NemOS.feedback.showToast(`Deploy failed: ${error.message}`, 'error');
+            }
+        }
+
+        function openLogStream(containerId) {
+            const container = containers.find(c => c.Id === containerId);
+            if (!container) return;
+
+            const template = document.getElementById('log-view-template');
+            const content = template.content.cloneNode(true);
+            const logContentEl = content.getElementById('log-content');
+            
+            activeLogModal = NemOS.feedback.showModal(`Logs for ${container.Name}`, content);
+            
+            const logWsUrl = `ws://${window.location.hostname}:3000/api/docker/containers/${containerId}/logs`;
+            logWebSocket = new WebSocket(logWsUrl);
+
+            logWebSocket.onopen = () => logContentEl.textContent = 'Connecting to log stream...\n';
+            logWebSocket.onmessage = (event) => {
+                 if (logContentEl.textContent === 'Connecting to log stream...\n') {
+                    logContentEl.textContent = ''; // Clear initial message
+                 }
+                 logContentEl.textContent += event.data;
+                 logContentEl.scrollTop = logContentEl.scrollHeight; // Auto-scroll
+            };
+            logWebSocket.onerror = () => logContentEl.textContent += '\n--- Error connecting to log stream. ---\n';
+            logWebSocket.onclose = () => {
+                 if (activeLogModal && activeLogModal.isOpen()) {
+                    logContentEl.textContent += '\n--- Log stream disconnected. ---\n';
+                 }
+            };
+            
+            // Override the modal's default close behavior to also close the WebSocket
+            const originalClose = activeLogModal.close;
+            activeLogModal.close = () => {
+                if (logWebSocket && logWebSocket.readyState === WebSocket.OPEN) {
+                    logWebSocket.close();
+                }
+                logWebSocket = null;
+                activeLogModal = null;
+                originalClose();
+            };
+        }
+
+        // --- RENDERING ---
+        function render() {
+            containerList.innerHTML = containers.map(createContainerRow).join('');
+            attachEventListeners();
+        }
+
+        function createContainerRow(container) {
+            const statusClass = `status-${container.State}`;
+            const ports = container.Ports.map(p => `${p.IP}:${p.PublicPort}->${p.PrivatePort}/${p.Type}`).join(', ') || 'N/A';
+            const startIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+            const stopIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>`;
+            const restartIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>`;
+            const logsIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>`;
+            const deleteIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-400 hover:text-red-300"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
+
+            const isRunning = container.State === 'running';
+
+            return `
+                <tr class="border-b border-gray-800" data-id="${container.Id}">
+                    <td class="px-4 py-3">${container.Name}</td>
+                    <td class="px-4 py-3 text-sm text-gray-400 truncate max-w-xs">${container.Image}</td>
+                    <td class="px-4 py-3">
+                        <span class="font-semibold ${statusClass}">${container.Status}</span>
+                    </td>
+                    <td class="px-4 py-3 text-sm font-mono">${ports}</td>
+                    <td class="px-4 py-3 text-right">
+                        <div class="flex items-center justify-end space-x-3 text-gray-400">
+                            <button class="start-btn hover:text-white ${isRunning ? 'hidden' : ''}" title="Start">${startIcon}</button>
+                            <button class="stop-btn hover:text-white ${!isRunning ? 'hidden' : ''}" title="Stop">${stopIcon}</button>
+                            <button class="restart-btn hover:text-white ${!isRunning ? 'hidden' : ''}" title="Restart">${restartIcon}</button>
+                            <button class="logs-btn hover:text-white" title="View Logs">${logsIcon}</button>
+                            <button class="delete-btn" title="Delete Container">${deleteIcon}</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // --- EVENT LISTENERS ---
+        function attachEventListeners() {
+            document.querySelectorAll('[data-id]').forEach(row => {
+                const containerId = row.dataset.id;
+                row.querySelector('.start-btn')?.addEventListener('click', () => performAction(containerId, 'start'));
+                row.querySelector('.stop-btn')?.addEventListener('click', () => performAction(containerId, 'stop'));
+                row.querySelector('.restart-btn')?.addEventListener('click', () => performAction(containerId, 'restart'));
+                row.querySelector('.logs-btn')?.addEventListener('click', () => openLogStream(containerId));
+                row.querySelector('.delete-btn')?.addEventListener('click', () => {
+                    NemOS.feedback.confirm(
+                        'Delete Container?', 
+                        'This will permanently delete the container. This action cannot be undone.',
+                        () => performAction(containerId, 'delete')
+                    );
+                });
+            });
+
+            deployComposeBtn.addEventListener('click', () => {
+                composeModal.classList.remove('hidden');
+                composeModal.classList.add('flex');
+            });
+
+            cancelComposeBtn.addEventListener('click', () => {
+                composeModal.classList.add('hidden');
+                composeModal.classList.remove('flex');
+                composeContent.value = ''; // Clear textarea on cancel
+            });
+
+            deployComposeSubmitBtn.addEventListener('click', deployCompose);
+        }
+    </script>
+
+</body>
+</html>
+

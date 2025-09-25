@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NemOS - Reverse Proxy Configurator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://rsms.me/inter/inter.css');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 h-screen flex flex-col p-4">
+
+    <header class="mb-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><polyline points="15 7 15 3 3 3 3 17 8 17"></polyline><rect x="12" y="7" width="9" height="9"></rect><line x1="15" y1="12" x2="18" y2="12"></line></svg>
+            Reverse Proxy Configurator (Nginx)
+        </h1>
+        <div class="flex items-center space-x-2">
+            <button id="test-config-btn" class="px-4 py-2 bg-yellow-600 text-white font-semibold rounded-lg hover:bg-yellow-700">Test Config</button>
+            <button id="reload-nginx-btn" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700">Apply & Reload</button>
+        </div>
+    </header>
+    
+    <main class="flex-grow flex border border-gray-700 rounded-lg overflow-hidden">
+        <!-- Rule List Sidebar -->
+        <aside class="w-1/3 bg-gray-800 p-2 flex flex-col border-r border-gray-700">
+            <div class="flex items-center mb-2">
+                <button id="new-rule-btn" class="w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Add New Rule</button>
+            </div>
+            <div id="rule-list" class="flex-grow overflow-y-auto">
+                <!-- Rule items will be injected here -->
+            </div>
+        </aside>
+
+        <!-- Editor View -->
+        <div id="editor-view" class="w-2/3 flex-grow flex flex-col opacity-0 transition-opacity">
+            <div class="p-4 border-b border-gray-700">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="domain-name" class="block text-sm font-medium text-gray-400">Domain Name</label>
+                        <input type="text" id="domain-name" placeholder="example.com" class="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="proxy-target" class="block text-sm font-medium text-gray-400">Proxy Target</label>
+                        <input type="text" id="proxy-target" placeholder="http://localhost:3000" class="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+                 <div class="mt-4 flex items-center">
+                    <input id="enable-ssl" type="checkbox" class="h-4 w-4 bg-gray-900 border-gray-600 rounded text-blue-600 focus:ring-blue-500">
+                    <label for="enable-ssl" class="ml-2 block text-sm text-gray-300">Enable SSL (Certbot)</label>
+                </div>
+            </div>
+            <div class="p-4 flex-grow flex flex-col">
+                 <h3 class="text-lg font-semibold mb-2">Generated Nginx Config</h3>
+                 <pre id="config-preview" class="flex-grow bg-gray-900 text-sm font-mono p-4 rounded-lg whitespace-pre-wrap overflow-auto"></pre>
+            </div>
+            <div class="p-4 border-t border-gray-700 flex justify-end space-x-2">
+                 <button id="delete-rule-btn" class="px-4 py-2 bg-red-800 text-white font-semibold rounded-lg hover:bg-red-900">Delete Rule</button>
+                 <button id="save-rule-btn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Save Rule</button>
+            </div>
+        </div>
+        <div id="welcome-view" class="w-2/3 flex items-center justify-center text-gray-500">
+            <p>Select a rule to edit or create a new one.</p>
+        </div>
+    </main>
+
+    <!-- NemOS Libraries -->
+    <script src="ux_console.js"></script>
+    
+    <script>
+        // --- CONFIG & INITIALIZATION ---
+        const backendApiUrl = `http://${window.location.hostname}:3000/api/proxy`;
+
+        // --- DOM Elements ---
+        const ruleList = document.getElementById('rule-list');
+        const newRuleBtn = document.getElementById('new-rule-btn');
+        const editorView = document.getElementById('editor-view');
+        const welcomeView = document.getElementById('welcome-view');
+        const domainNameInput = document.getElementById('domain-name');
+        const proxyTargetInput = document.getElementById('proxy-target');
+        const enableSslCheckbox = document.getElementById('enable-ssl');
+        const configPreview = document.getElementById('config-preview');
+        const saveRuleBtn = document.getElementById('save-rule-btn');
+        const deleteRuleBtn = document.getElementById('delete-rule-btn');
+        const testConfigBtn = document.getElementById('test-config-btn');
+        const reloadNginxBtn = document.getElementById('reload-nginx-btn');
+
+        // --- STATE ---
+        let rules = [];
+        let selectedRuleId = null;
+
+        // --- API CALLS ---
+        async function fetchRules() {
+            try {
+                const response = await fetch(`${backendApiUrl}/rules`);
+                rules = await response.json();
+                renderRuleList();
+            } catch (error) {
+                console.error('Error fetching rules:', error);
+                NemOS.feedback.showToast('Could not load proxy rules.', 'error');
+            }
+        }
+        
+        async function saveRule(rule) {
+            try {
+                const response = await fetch(`${backendApiUrl}/rules`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(rule),
+                });
+                if (response.ok) {
+                    NemOS.feedback.showToast('Rule saved successfully.', 'success');
+                    await fetchRules();
+                    selectRule(rule.id);
+                } else throw new Error('Failed to save rule');
+            } catch (error) {
+                console.error('Error saving rule:', error);
+                NemOS.feedback.showToast(error.message, 'error');
+            }
+        }
+        
+        async function deleteRule(ruleId) {
+             try {
+                const response = await fetch(`${backendApiUrl}/rules/${ruleId}`, { method: 'DELETE' });
+                if (response.ok) {
+                    NemOS.feedback.showToast('Rule deleted.', 'info');
+                    await fetchRules();
+                    showEditorView(false);
+                } else throw new Error('Failed to delete rule');
+            } catch (error) {
+                console.error('Error deleting rule:', error);
+                NemOS.feedback.showToast(error.message, 'error');
+            }
+        }
+        
+        async function performNginxAction(action) {
+            try {
+                const response = await fetch(`${backendApiUrl}/action`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action }),
+                });
+                const result = await response.json();
+                const title = action === 'test' ? 'Nginx Config Test' : 'Nginx Reload';
+                const content = `<pre class="bg-gray-900 text-sm font-mono p-4 rounded-lg whitespace-pre-wrap max-h-[70vh] overflow-y-auto">${result.output}</pre>`;
+                NemOS.feedback.showModal(title, content, { isRawContent: true });
+
+            } catch (error) {
+                 console.error(`Error performing action ${action}:`, error);
+                 NemOS.feedback.showToast(`Action '${action}' failed.`, 'error');
+            }
+        }
+
+        // --- UI & RENDERING ---
+        function renderRuleList() {
+            ruleList.innerHTML = rules.map(rule => `
+                <div class="rule-item p-2 rounded cursor-pointer hover:bg-gray-700 ${rule.id === selectedRuleId ? 'bg-blue-600 text-white' : ''}" data-id="${rule.id}">
+                    <p class="font-semibold">${rule.domain}</p>
+                    <p class="text-xs text-gray-400 truncate">${rule.target}</p>
+                </div>
+            `).join('');
+            attachRuleListListeners();
+        }
+
+        function showEditorView(show) {
+            if (show) {
+                welcomeView.style.display = 'none';
+                editorView.classList.remove('opacity-0');
+            } else {
+                welcomeView.style.display = 'flex';
+                editorView.classList.add('opacity-0');
+                selectedRuleId = null;
+            }
+        }
+        
+        function populateEditor(rule) {
+            domainNameInput.value = rule.domain;
+            proxyTargetInput.value = rule.target;
+            enableSslCheckbox.checked = rule.ssl;
+            updateConfigPreview();
+        }
+        
+        function generateNginxConfig() {
+            const domain = domainNameInput.value || 'example.com';
+            const target = proxyTargetInput.value || 'http://localhost:3000';
+            const ssl = enableSslCheckbox.checked;
+            
+            let config = `server {
+    server_name ${domain};
+
+    location / {
+        proxy_pass ${target};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+`;
+            if (ssl) {
+                config += `
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/${domain}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${domain}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+server {
+    if ($host = ${domain}) {
+        return 301 https://$host$request_uri;
+    }
+
+    listen 80;
+    server_name ${domain};
+    return 404;
+`;
+            } else {
+                config += `    listen 80;`;
+            }
+            config += `\n}`;
+            return config;
+        }
+
+        function updateConfigPreview() {
+            configPreview.textContent = generateNginxConfig();
+        }
+        
+        function selectRule(ruleId) {
+            selectedRuleId = ruleId;
+            const rule = rules.find(r => r.id === ruleId);
+            if (rule) {
+                populateEditor(rule);
+                showEditorView(true);
+            }
+            renderRuleList();
+        }
+
+        // --- EVENT LISTENERS ---
+        function attachRuleListListeners() {
+            document.querySelectorAll('.rule-item').forEach(item => {
+                item.addEventListener('click', () => selectRule(item.dataset.id));
+            });
+        }
+        
+        [domainNameInput, proxyTargetInput, enableSslCheckbox].forEach(el => {
+            el.addEventListener('input', updateConfigPreview);
+        });
+
+        newRuleBtn.addEventListener('click', () => {
+            selectRule(`new_${Date.now()}`); // Temporary ID
+            populateEditor({ id: selectedRuleId, domain: '', target: '', ssl: false });
+        });
+        
+        saveRuleBtn.addEventListener('click', () => {
+            const rule = {
+                id: selectedRuleId,
+                domain: domainNameInput.value,
+                target: proxyTargetInput.value,
+                ssl: enableSslCheckbox.checked,
+            };
+            if (!rule.domain || !rule.target) {
+                NemOS.feedback.showToast('Domain and Target are required.', 'warning');
+                return;
+            }
+            saveRule(rule);
+        });
+        
+        deleteRuleBtn.addEventListener('click', () => {
+            if (selectedRuleId && !selectedRuleId.startsWith('new_')) {
+                NemOS.feedback.confirm(
+                    'Delete Rule?',
+                    `Are you sure you want to delete the rule for '${domainNameInput.value}'? This cannot be undone.`,
+                    () => deleteRule(selectedRuleId)
+                );
+            }
+        });
+        
+        testConfigBtn.addEventListener('click', () => performNginxAction('test'));
+        
+        reloadNginxBtn.addEventListener('click', () => {
+             NemOS.feedback.confirm(
+                'Apply and Reload Nginx?',
+                'This will apply all saved rules and attempt to reload the Nginx service. Are you sure you want to proceed?',
+                () => performNginxAction('reload')
+            );
+        });
+
+        // --- INITIAL LOAD ---
+        fetchRules();
+        showEditorView(false);
+
+    </script>
+</body>
+</html>
+

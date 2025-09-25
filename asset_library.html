@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NemOS - Asset Library</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://rsms.me/inter/inter.css');
+        body { font-family: 'Inter', sans-serif; }
+        #drop-zone {
+            border-style: dashed;
+        }
+        .asset-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .asset-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 h-screen flex flex-col p-4">
+
+    <header class="mb-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+            Asset Library
+        </h1>
+        <div class="flex items-center space-x-2">
+            <input id="search-bar" type="text" placeholder="Search by name or tag..." class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+            <button id="upload-btn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Upload</button>
+            <input type="file" id="file-input" multiple class="hidden">
+        </div>
+    </header>
+
+    <main id="main-content" class="flex-grow flex flex-col border border-gray-700 rounded-lg overflow-hidden">
+        <div id="asset-grid" class="flex-grow p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 overflow-y-auto">
+            <!-- Asset cards will be injected here -->
+        </div>
+        <div id="drop-zone" class="hidden absolute inset-0 bg-gray-900 bg-opacity-75 border-4 border-dashed border-blue-500 rounded-lg items-center justify-center text-2xl font-bold text-white">
+            Drop files to upload
+        </div>
+    </main>
+    
+    <!-- Modal Content Template -->
+    <template id="asset-detail-template">
+        <div class="flex flex-col md:flex-row -m-6">
+            <div class="md:w-1/2 bg-gray-800 p-6 flex items-center justify-center">
+                <img id="detail-preview-img" src="" class="max-w-full max-h-80 object-contain">
+                 <pre id="detail-preview-text" class="max-w-full max-h-80 overflow-auto bg-gray-900 p-4 rounded text-xs"></pre>
+            </div>
+            <div class="md:w-1/2 p-6 flex flex-col">
+                <h3 id="detail-name" class="text-lg font-bold mb-2"></h3>
+                <div class="text-sm text-gray-400 space-y-1 mb-4">
+                    <p><strong>Type:</strong> <span id="detail-type"></span></p>
+                    <p><strong>Size:</strong> <span id="detail-size"></span></p>
+                    <p><strong>Added:</strong> <span id="detail-date"></span></p>
+                </div>
+                <div class="flex-grow">
+                     <h4 class="font-semibold mb-2">Tags:</h4>
+                     <div id="detail-tags-list" class="flex flex-wrap gap-2 mb-2"></div>
+                     <input id="detail-tags-input" type="text" placeholder="Add a tag and press Enter" class="w-full bg-gray-700 rounded p-2 text-sm">
+                </div>
+                <div class="mt-4 flex justify-end space-x-2">
+                    <button id="modal-download-btn" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700">Download</button>
+                    <button id="modal-delete-btn" class="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">Delete</button>
+                    <button id="modal-close-btn" class="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-700">Close</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- NemOS Libraries -->
+    <script src="ux_console.js"></script>
+
+    <script>
+        // --- CONFIG & INITIALIZATION ---
+        const backendApiUrl = `http://${window.location.hostname}:3000/api/assets`;
+
+        // --- DOM Elements ---
+        const mainContent = document.getElementById('main-content');
+        const assetGrid = document.getElementById('asset-grid');
+        const uploadBtn = document.getElementById('upload-btn');
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const searchBar = document.getElementById('search-bar');
+        
+        // --- STATE ---
+        let assets = [];
+
+        // --- API CALLS ---
+        async function fetchAssets() {
+            try {
+                const response = await fetch(backendApiUrl);
+                assets = await response.json();
+                render();
+            } catch (error) {
+                console.error('Error fetching assets:', error);
+                NemOS.feedback.showToast('Could not load asset library.', 'error');
+            }
+        }
+
+        async function uploadFiles(files) {
+            const formData = new FormData();
+            for (const file of files) {
+                formData.append('assets', file);
+            }
+
+            try {
+                const response = await fetch(`${backendApiUrl}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (response.ok) {
+                    NemOS.feedback.showToast(`${files.length} file(s) uploaded successfully!`, 'success');
+                    fetchAssets(); // Refresh the list
+                } else {
+                     const result = await response.json();
+                     throw new Error(result.error || 'Upload failed');
+                }
+            } catch (error) {
+                 console.error('Error uploading files:', error);
+                 NemOS.feedback.showToast(error.message, 'error');
+            }
+        }
+        
+        async function deleteAsset(assetId) {
+            try {
+                const response = await fetch(`${backendApiUrl}/${assetId}`, { method: 'DELETE' });
+                if (response.ok) {
+                    NemOS.feedback.showToast('Asset deleted.', 'info');
+                    fetchAssets();
+                } else {
+                     throw new Error('Failed to delete asset');
+                }
+            } catch(error) {
+                console.error('Error deleting asset:', error);
+                NemOS.feedback.showToast(error.message, 'error');
+            }
+        }
+        
+        async function updateAssetTags(assetId, tags) {
+            try {
+                await fetch(`${backendApiUrl}/${assetId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tags })
+                });
+                fetchAssets(); // Optimistically refresh all assets
+            } catch (error) {
+                console.error('Error updating tags:', error);
+                NemOS.feedback.showToast('Failed to update tags.', 'error');
+            }
+        }
+
+        // --- RENDERING ---
+        function render() {
+            const filter = searchBar.value.toLowerCase();
+            const filteredAssets = assets.filter(asset => 
+                asset.filename.toLowerCase().includes(filter) ||
+                asset.tags.some(tag => tag.toLowerCase().includes(filter))
+            );
+            assetGrid.innerHTML = filteredAssets.map(createAssetCard).join('');
+            attachCardListeners();
+        }
+
+        function createAssetCard(asset) {
+            const isImage = asset.mimetype.startsWith('image/');
+            const preview = isImage 
+                ? `<img src="/assets/${asset.filename}" class="w-full h-24 object-cover" onerror="this.src='https://placehold.co/100x100/333/fff?text=Error'">`
+                : `<div class="w-full h-24 bg-gray-700 flex items-center justify-center text-3xl">������</div>`;
+
+            return `
+                <div class="asset-card bg-gray-800 rounded-lg overflow-hidden border border-gray-700 cursor-pointer" data-id="${asset.id}">
+                    ${preview}
+                    <p class="text-xs text-center p-2 truncate">${asset.filename}</p>
+                </div>
+            `;
+        }
+        
+        function openDetailModal(assetId) {
+            const asset = assets.find(a => a.id === assetId);
+            if (!asset) return;
+            
+            const template = document.getElementById('asset-detail-template');
+            const content = template.content.cloneNode(true);
+            
+            const nameEl = content.getElementById('detail-name');
+            const typeEl = content.getElementById('detail-type');
+            const sizeEl = content.getElementById('detail-size');
+            const dateEl = content.getElementById('detail-date');
+            const tagsListEl = content.getElementById('detail-tags-list');
+            const tagsInputEl = content.getElementById('detail-tags-input');
+            const previewImg = content.getElementById('detail-preview-img');
+            const previewText = content.getElementById('detail-preview-text');
+
+            nameEl.textContent = asset.filename;
+            typeEl.textContent = asset.mimetype;
+            sizeEl.textContent = `${(asset.size / 1024).toFixed(2)} KB`;
+            dateEl.textContent = new Date(asset.created_at).toLocaleString();
+            
+            if (asset.mimetype.startsWith('image/')) {
+                previewImg.src = `/assets/${asset.filename}`;
+                previewText.style.display = 'none';
+            } else {
+                // For text, you'd fetch content, here we just show info
+                previewText.textContent = 'Text preview not implemented in this version.';
+                previewImg.style.display = 'none';
+            }
+
+            function renderTags() {
+                tagsListEl.innerHTML = asset.tags.map(tag => `
+                    <span class="bg-blue-600 text-white text-xs font-semibold px-2 py-1 rounded-full flex items-center">
+                        ${tag}
+                        <button data-tag="${tag}" class="remove-tag-btn ml-2 text-blue-200 hover:text-white">&times;</button>
+                    </span>
+                `).join('');
+                 tagsListEl.querySelectorAll('.remove-tag-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const tagToRemove = e.target.dataset.tag;
+                        asset.tags = asset.tags.filter(t => t !== tagToRemove);
+                        updateAssetTags(asset.id, asset.tags);
+                        renderTags();
+                    });
+                });
+            }
+            renderTags();
+            
+            tagsInputEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const newTag = e.target.value.trim();
+                    if (newTag && !asset.tags.includes(newTag)) {
+                        asset.tags.push(newTag);
+                        updateAssetTags(asset.id, asset.tags);
+                        renderTags();
+                    }
+                    e.target.value = '';
+                }
+            });
+
+            const modal = NemOS.feedback.showModal(`Asset Details`, content, { size: 'large' });
+            modal.querySelector('#modal-close-btn').addEventListener('click', () => modal.close());
+            modal.querySelector('#modal-delete-btn').addEventListener('click', () => {
+                NemOS.feedback.confirm(
+                    `Delete '${asset.filename}'?`,
+                    'This will permanently delete the asset. This cannot be undone.',
+                    () => {
+                        deleteAsset(asset.id);
+                        modal.close();
+                    }
+                );
+            });
+            modal.querySelector('#modal-download-btn').addEventListener('click', () => {
+                const downloadLink = document.createElement('a');
+                downloadLink.href = `/assets/${asset.filename}`;
+                downloadLink.download = asset.filename;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+            });
+        }
+
+        // --- EVENT LISTENERS ---
+        function attachCardListeners() {
+            document.querySelectorAll('.asset-card').forEach(card => {
+                card.addEventListener('click', (e) => openDetailModal(parseInt(e.currentTarget.dataset.id, 10)));
+            });
+        }
+        
+        uploadBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => uploadFiles(e.target.files));
+        searchBar.addEventListener('input', render);
+
+        // --- Drag & Drop ---
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            mainContent.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+        
+        mainContent.addEventListener('dragenter', () => dropZone.style.display = 'flex');
+        dropZone.addEventListener('dragleave', (e) => {
+            // Only hide if the mouse is leaving the main content area
+            if (e.relatedTarget === null || !mainContent.contains(e.relatedTarget)) {
+                dropZone.style.display = 'none';
+            }
+        });
+        dropZone.addEventListener('drop', (e) => {
+            dropZone.style.display = 'none';
+            uploadFiles(e.dataTransfer.files);
+        });
+
+        // --- INITIAL LOAD ---
+        fetchAssets();
+    </script>
+</body>
+</html>
+

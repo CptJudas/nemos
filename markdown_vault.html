@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NemOS - Markdown Vault</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Highlight.js for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        @import url('https://rsms.me/inter/inter.css');
+        body { font-family: 'Inter', sans-serif; }
+        .file-tree .folder > .folder-name { display: flex; align-items: center; }
+        .file-tree .file > .file-name { display: flex; align-items: center; }
+        .file-tree .folder > .folder-name:before { content: ''; display: inline-block; height: 16px; width: 16px; margin-right: 4px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 19a2 0 0 1-2 2H4a2 0 0 1-2-2V5a2 0 0 1 2-2h5l2 3h9a2 0 0 1 2 2z'%3E%3C/path%3E%3C/svg%3E"); }
+        .file-tree .file > .file-name:before { content: ''; display: inline-block; height: 16px; width: 16px; margin-right: 4px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'%3E%3C/path%3E%3Cpolyline points='14 2 14 8 20 8'%3E%3C/polyline%3E%3C/svg%3E"); }
+        .file-tree .active { background-color: #3b82f6; color: white; }
+        /* Style for the rendered markdown */
+        .markdown-body h1, .markdown-body h2, .markdown-body h3 { border-bottom: 1px solid #4a5568; padding-bottom: 0.3em; }
+        .markdown-body code { background-color: #1a202c; padding: .2em .4em; margin: 0; font-size: 85%; border-radius: 6px; }
+        .markdown-body pre code { padding: 1em; }
+        .markdown-body blockquote { border-left: .25em solid #4a5568; padding: 0 1em; color: #a0aec0; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 h-screen flex flex-col p-4">
+
+    <header class="mb-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold flex items-center">
+             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+            Markdown Vault
+        </h1>
+        <div id="editor-actions" class="flex items-center space-x-2 opacity-0 transition-opacity">
+            <span id="save-status" class="text-sm text-gray-400"></span>
+            <button id="save-btn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Save</button>
+        </div>
+    </header>
+
+    <main class="flex-grow flex border border-gray-700 rounded-lg overflow-hidden">
+        <!-- File Tree Sidebar -->
+        <aside class="w-1/4 bg-gray-800 p-2 flex flex-col border-r border-gray-700">
+            <div class="flex items-center space-x-1 mb-2">
+                <button id="new-file-btn" title="New File" class="p-2 rounded hover:bg-gray-700"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg></button>
+                <button id="new-folder-btn" title="New Folder" class="p-2 rounded hover:bg-gray-700"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg></button>
+                <button id="delete-btn" title="Delete Selected" class="p-2 rounded hover:bg-gray-700"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-400"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>
+            </div>
+            <div id="file-tree-container" class="flex-grow overflow-y-auto"></div>
+        </aside>
+
+        <!-- Editor & Preview -->
+        <div id="editor-view" class="w-3/4 flex hidden">
+            <textarea id="markdown-editor" class="w-1/2 h-full bg-gray-900 p-4 font-mono text-sm resize-none focus:outline-none"></textarea>
+            <div id="markdown-preview" class="w-1/2 h-full bg-gray-800 p-4 overflow-y-auto markdown-body border-l border-gray-700"></div>
+        </div>
+         <div id="welcome-view" class="w-3/4 flex items-center justify-center text-gray-500">
+            <p>Select a file to view or edit.</p>
+        </div>
+    </main>
+
+    <!-- Modal Content Template -->
+    <template id="name-input-template">
+        <div>
+            <p id="prompt-message" class="mb-4 text-gray-300"></p>
+            <input id="prompt-input" type="text" class="w-full bg-gray-900 rounded p-2 border border-gray-600">
+            <div class="mt-4 flex justify-end space-x-2">
+                <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-700">Cancel</button>
+                <button id="modal-confirm-btn" class="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700">Create</button>
+            </div>
+        </div>
+    </template>
+    
+    <!-- NemOS Libraries -->
+    <script src="ux_console.js"></script>
+    
+    <script>
+        // --- CONFIG & INITIALIZATION ---
+        const backendApiUrl = `http://${window.location.hostname}:3000/api/vault`;
+
+        // --- DOM Elements ---
+        const fileTreeContainer = document.getElementById('file-tree-container');
+        const markdownEditor = document.getElementById('markdown-editor');
+        const markdownPreview = document.getElementById('markdown-preview');
+        const editorView = document.getElementById('editor-view');
+        const welcomeView = document.getElementById('welcome-view');
+        const newFileBtn = document.getElementById('new-file-btn');
+        const newFolderBtn = document.getElementById('new-folder-btn');
+        const deleteBtn = document.getElementById('delete-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const editorActions = document.getElementById('editor-actions');
+        const saveStatus = document.getElementById('save-status');
+        
+        // --- STATE ---
+        let fileTree = {};
+        let selectedPath = null;
+        let originalContent = '';
+
+        // --- API CALLS ---
+        async function fetchFileTree() {
+            try {
+                const response = await fetch(`${backendApiUrl}/tree`);
+                fileTree = await response.json();
+                renderFileTree();
+            } catch (error) {
+                console.error('Error fetching file tree:', error);
+                NemOS.feedback.showToast('Could not load file tree.', 'error');
+            }
+        }
+
+        async function fetchFileContent(path) {
+            try {
+                const response = await fetch(`${backendApiUrl}/file?path=${encodeURIComponent(path)}`);
+                const content = await response.text();
+                originalContent = content;
+                markdownEditor.value = content;
+                updatePreview(content);
+                showEditorView(true);
+            } catch (error) {
+                console.error('Error fetching file content:', error);
+                NemOS.feedback.showToast('Could not load file content.', 'error');
+            }
+        }
+
+        async function saveFileContent(path, content) {
+            try {
+                saveStatus.textContent = 'Saving...';
+                const response = await fetch(`${backendApiUrl}/file`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path, content })
+                });
+                if (response.ok) {
+                    originalContent = content;
+                    saveStatus.textContent = 'Saved!';
+                    setTimeout(() => saveStatus.textContent = '', 2000);
+                    fetchFileTree(); // Refresh tree after saving
+                } else {
+                    throw new Error('Failed to save');
+                }
+            } catch (error) {
+                console.error('Error saving file:', error);
+                saveStatus.textContent = '';
+                NemOS.feedback.showToast('Error saving file.', 'error');
+            }
+        }
+        
+        async function performFileAction(action, path) {
+            try {
+                const response = await fetch(`${backendApiUrl}/action`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, path })
+                });
+                 if (response.ok) {
+                    NemOS.feedback.showToast(`Action '${action}' successful.`, 'success');
+                    fetchFileTree(); // Refresh tree
+                    if (action.startsWith('delete') && selectedPath?.startsWith(path)) {
+                        showEditorView(false);
+                    }
+                } else {
+                    const res = await response.json();
+                    throw new Error(res.error || `Action '${action}' failed.`);
+                }
+            } catch (error) {
+                console.error(`Error with action '${action}':`, error);
+                NemOS.feedback.showToast(error.message, 'error');
+            }
+        }
+
+        // --- RENDERING & UI ---
+        function renderFileTree() {
+            fileTreeContainer.innerHTML = createTreeHTML(fileTree.children, '');
+        }
+
+        function createTreeHTML(nodes, path) {
+            const nodeList = nodes || []; // Guard against undefined nodes
+            return `<ul class="file-tree space-y-1">` + nodeList.map(node => {
+                const currentPath = path ? `${path}/${node.name}` : node.name;
+                const isActive = currentPath === selectedPath ? 'active' : '';
+                if (node.type === 'folder') {
+                    return `<li class="folder">
+                        <div class="folder-name p-1 rounded cursor-pointer hover:bg-gray-700 ${isActive}" data-path="${currentPath}">${node.name}</div>
+                        ${createTreeHTML(node.children, currentPath)}
+                    </li>`;
+                } else {
+                    return `<li class="file">
+                        <div class="file-name p-1 rounded cursor-pointer hover:bg-gray-700 ${isActive}" data-path="${currentPath}">${node.name}</div>
+                    </li>`;
+                }
+            }).join('') + `</ul>`;
+        }
+
+        function updatePreview(markdown) {
+            markdownPreview.innerHTML = marked.parse(markdown);
+            // Re-apply syntax highlighting
+            markdownPreview.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+            });
+        }
+        
+        function showEditorView(show) {
+            if (show) {
+                editorView.classList.remove('hidden');
+                welcomeView.classList.add('hidden');
+                editorActions.classList.remove('opacity-0');
+            } else {
+                editorView.classList.add('hidden');
+                welcomeView.classList.remove('hidden');
+                editorActions.classList.add('opacity-0');
+                selectedPath = null;
+                markdownEditor.value = '';
+                updatePreview('');
+                renderFileTree();
+            }
+        }
+
+        // --- EVENT LISTENERS & HANDLERS ---
+        fileTreeContainer.addEventListener('click', (e) => {
+            const target = e.target.closest('[data-path]');
+            if (target) {
+                selectedPath = target.dataset.path;
+                const node = findNodeByPath(selectedPath);
+                if (node && node.type === 'file') {
+                    fetchFileContent(selectedPath);
+                }
+                renderFileTree(); // Re-render to show active selection
+            }
+        });
+
+        markdownEditor.addEventListener('input', () => {
+            updatePreview(markdownEditor.value);
+            const isModified = markdownEditor.value !== originalContent;
+            saveStatus.textContent = isModified ? 'Modified' : 'Saved!';
+        });
+
+        saveBtn.addEventListener('click', () => {
+            if (selectedPath) {
+                saveFileContent(selectedPath, markdownEditor.value);
+            }
+        });
+
+        newFileBtn.addEventListener('click', () => handleCreate('file'));
+        newFolderBtn.addEventListener('click', () => handleCreate('folder'));
+
+        deleteBtn.addEventListener('click', () => {
+            if (!selectedPath) {
+                NemOS.feedback.showToast('No file or folder selected.', 'warning');
+                return;
+            }
+            NemOS.feedback.confirm(
+                `Delete '${selectedPath}'?`,
+                'This will permanently delete the item and its contents. This cannot be undone.',
+                () => performFileAction('delete', selectedPath)
+            );
+        });
+
+        function handleCreate(type) {
+             const template = document.getElementById('name-input-template');
+             const content = template.content.cloneNode(true);
+             const messageEl = content.getElementById('prompt-message');
+             const inputEl = content.getElementById('prompt-input');
+
+             messageEl.textContent = `Enter the name for the new ${type}:`;
+             inputEl.placeholder = type === 'file' ? 'mynote.md' : 'My Folder';
+             
+             const modal = NemOS.feedback.showModal(`Create New ${type.charAt(0).toUpperCase() + type.slice(1)}`, content);
+             inputEl.focus();
+
+             const confirmAction = () => {
+                 const name = inputEl.value.trim();
+                 if (!name) {
+                     NemOS.feedback.showToast('Name cannot be empty.', 'warning');
+                     return;
+                 }
+                 const basePath = selectedPath ? (findNodeByPath(selectedPath)?.type === 'folder' ? selectedPath : selectedPath.substring(0, selectedPath.lastIndexOf('/'))) : '';
+                 const newPath = basePath ? `${basePath}/${name}` : name;
+                 performFileAction(`create-${type}`, newPath);
+                 modal.close();
+             };
+
+             modal.querySelector('#modal-confirm-btn').addEventListener('click', confirmAction);
+             modal.querySelector('#modal-cancel-btn').addEventListener('click', () => modal.close());
+             inputEl.addEventListener('keydown', (e) => {
+                 if (e.key === 'Enter') confirmAction();
+             });
+        }
+        
+        function findNodeByPath(path) {
+            const parts = path.split('/');
+            let currentNodeList = fileTree.children;
+            let foundNode = null;
+            for (const part of parts) {
+                foundNode = currentNodeList.find(node => node.name === part);
+                if (foundNode && foundNode.type === 'folder') {
+                    currentNodeList = foundNode.children;
+                } else if (!foundNode) {
+                    return null;
+                }
+            }
+            return foundNode;
+        }
+
+        // --- INITIAL LOAD ---
+        fetchFileTree();
+        showEditorView(false);
+    </script>
+
+</body>
+</html>
+

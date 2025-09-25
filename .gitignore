@@ -1,0 +1,22 @@
+# Dependencies
+/node_modules
+/backend/node_modules
+
+# Logs
+*.log
+backend.log
+docker.log
+server_console.log
+websocket.log
+
+# Environment variables
+.env
+
+# Storage - SQLite databases
+# Depending on your use case, you might want to commit these
+# if they contain essential starting data. For now, we'll ignore them.
+/storage/*.db
+
+# OS-specific
+.DS_Store
+Thumbs.db

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NemOS - System Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://rsms.me/inter/inter.css');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 h-screen flex flex-col p-4">
+
+    <header class="mb-4">
+        <h1 class="text-2xl font-bold flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            System Monitor
+        </h1>
+    </header>
+    
+    <main class="flex-grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- CPU Card -->
+        <div class="bg-gray-800 p-4 rounded-lg flex flex-col">
+            <h2 class="text-lg font-semibold text-gray-400">CPU Usage</h2>
+            <div class="flex-grow flex items-center justify-center">
+                <p id="cpu-load" class="text-5xl font-bold">--%</p>
+            </div>
+            <div class="h-24"><canvas id="cpu-chart"></canvas></div>
+        </div>
+
+        <!-- Memory Card -->
+        <div class="bg-gray-800 p-4 rounded-lg flex flex-col">
+            <h2 class="text-lg font-semibold text-gray-400">Memory Usage</h2>
+            <div class="flex-grow flex flex-col items-center justify-center">
+                <div class="relative w-32 h-32">
+                    <svg class="w-full h-full" viewBox="0 0 36 36">
+                        <path class="text-gray-700" stroke-width="3" fill="none" stroke="currentColor" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
+                        <path id="mem-ring" class="text-blue-500" stroke-width="3" fill="none" stroke="currentColor" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
+                    </svg>
+                    <div id="mem-percent" class="absolute inset-0 flex items-center justify-center text-3xl font-bold">--%</div>
+                </div>
+                <p id="mem-text" class="mt-4 text-sm text-gray-400">-- GB / -- GB</p>
+            </div>
+        </div>
+        
+        <!-- Disk Usage Card -->
+        <div class="bg-gray-800 p-4 rounded-lg flex flex-col">
+            <h2 class="text-lg font-semibold text-gray-400 mb-4">Disk Usage</h2>
+            <div id="disk-list" class="flex-grow space-y-4 overflow-y-auto">
+                <!-- Disk items will be injected here -->
+            </div>
+        </div>
+        
+        <!-- Network Card -->
+        <div class="bg-gray-800 p-4 rounded-lg flex flex-col justify-between">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-400">Network</h2>
+                <p id="net-interface" class="text-sm text-gray-500 font-mono">--</p>
+            </div>
+            <div class="space-y-4">
+                 <div class="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-400 mr-3"><path d="M12 19V5"></path><polyline points="5 12 12 5 19 12"></polyline></svg>
+                    <div>
+                        <p class="text-xs text-gray-400">Upload</p>
+                        <p id="net-upload" class="text-2xl font-semibold">-- KB/s</p>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400 mr-3"><path d="M12 5v14"></path><polyline points="19 12 12 19 5 12"></polyline></svg>
+                    <div>
+                        <p class="text-xs text-gray-400">Download</p>
+                        <p id="net-download" class="text-2xl font-semibold">-- KB/s</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- NemOS Libraries -->
+    <script src="ux_console.js"></script>
+
+    <script>
+        // --- CONFIG & INITIALIZATION ---
+        const backendWsUrl = `ws://${window.location.hostname}:3000/api/system/stats`;
+        const cpuChartCtx = document.getElementById('cpu-chart').getContext('2d');
+        
+        // --- DOM Elements ---
+        const cpuLoadEl = document.getElementById('cpu-load');
+        const memRingEl = document.getElementById('mem-ring');
+        const memPercentEl = document.getElementById('mem-percent');
+        const memTextEl = document.getElementById('mem-text');
+        const diskListEl = document.getElementById('disk-list');
+        const netInterfaceEl = document.getElementById('net-interface');
+        const netUploadEl = document.getElementById('net-upload');
+        const netDownloadEl = document.getElementById('net-download');
+
+        // --- CHART SETUP ---
+        const cpuChart = new Chart(cpuChartCtx, {
+            type: 'line',
+            data: {
+                labels: Array(30).fill(''),
+                datasets: [{
+                    data: Array(30).fill(0),
+                    borderColor: 'rgba(59, 130, 246, 0.8)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { display: false },
+                    y: { display: false, min: 0, max: 100 }
+                },
+                plugins: { legend: { display: false }, tooltip: { enabled: false } }
+            }
+        });
+
+        // --- WebSocket Connection ---
+        function connectWebSocket() {
+            const ws = new WebSocket(backendWsUrl);
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                updateUI(data);
+            };
+            ws.onerror = (error) => {
+                console.error('WebSocket Error:', error);
+                NemOS.feedback.showToast('Connection to server lost. Retrying...', 'error');
+            };
+            ws.onclose = () => {
+                setTimeout(connectWebSocket, 3000);
+            };
+        }
+        connectWebSocket();
+
+        // --- UI UPDATE LOGIC ---
+        function updateUI(data) {
+            // CPU Update
+            const currentLoad = data.cpu.currentLoad.toFixed(1);
+            cpuLoadEl.textContent = `${currentLoad}%`;
+            cpuChart.data.datasets[0].data.push(currentLoad);
+            cpuChart.data.datasets[0].data.shift();
+            cpuChart.update('none');
+
+            // Memory Update
+            const memUsed = data.mem.active / (1024 ** 3);
+            const memTotal = data.mem.total / (1024 ** 3);
+            const memPercent = ((memUsed / memTotal) * 100).toFixed(0);
+            memPercentEl.textContent = `${memPercent}%`;
+            memTextEl.textContent = `${memUsed.toFixed(1)} GB / ${memTotal.toFixed(1)} GB`;
+            memRingEl.style.strokeDasharray = `${memPercent}, 100`;
+
+            // Disk Update
+            diskListEl.innerHTML = data.fsSize.map(disk => {
+                const diskUsed = (disk.used / (1024 ** 3)).toFixed(1);
+                const diskTotal = (disk.size / (1024 ** 3)).toFixed(1);
+                const diskPercent = disk.use.toFixed(0);
+                const barColor = diskPercent > 85 ? 'bg-red-500' : 'bg-blue-500';
+                return `
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="font-mono">${disk.fs}</span>
+                            <span>${diskUsed} GB / ${diskTotal} GB</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-2.5">
+                            <div class="${barColor} h-2.5 rounded-full" style="width: ${diskPercent}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Network Update
+            const netIface = data.networkStats[0];
+            netInterfaceEl.textContent = netIface.iface;
+            netUploadEl.textContent = `${(netIface.tx_sec / 1024).toFixed(1)} KB/s`;
+            netDownloadEl.textContent = `${(netIface.rx_sec / 1024).toFixed(1)} KB/s`;
+        }
+    </script>
+</body>
+</html>
+

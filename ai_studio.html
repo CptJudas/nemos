@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NemOS - AI Prompt Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Highlight.js for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        @import url('https://rsms.me/inter/inter.css');
+        body { font-family: 'Inter', sans-serif; }
+        .message-user { background-color: #2d3748; /* bg-gray-800 */ }
+        .message-ai { background-color: #1a202c; /* bg-gray-900 */ }
+        .markdown-body p:last-child { margin-bottom: 0; }
+        .markdown-body code { background-color: #2d3748; padding: .2em .4em; margin: 0; font-size: 85%; border-radius: 6px; }
+        .markdown-body pre { background-color: #1a202c; padding: 1em; border-radius: 8px; }
+        .markdown-body pre code { padding: 0; }
+        #chat-history::-webkit-scrollbar { width: 8px; }
+        #chat-history::-webkit-scrollbar-track { background: #1a202c; }
+        #chat-history::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 h-screen flex flex-col p-4">
+
+    <header class="mb-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="M12 8V4H8"></path><rect x="4" y="4" width="16" height="16"></rect><path d="M4 16h4"></path><path d="M12 12h4"></path></svg>
+            AI Prompt Studio
+        </h1>
+        <div class="flex items-center space-x-2">
+            <span id="ai-status" class="text-sm font-semibold flex items-center"><span class="h-2 w-2 rounded-full bg-gray-500 mr-2"></span>Checking...</span>
+            <select id="model-select" class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"></select>
+            <button id="new-chat-btn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">New Chat</button>
+        </div>
+    </header>
+
+    <main class="flex-grow flex border border-gray-700 rounded-lg overflow-hidden">
+        <!-- Conversations Sidebar -->
+        <aside class="w-1/4 bg-gray-800 p-2 flex flex-col border-r border-gray-700">
+             <div class="flex-grow overflow-y-auto" id="conversation-list"></div>
+             <div class="pt-2 border-t border-gray-700">
+                <button id="manage-templates-btn" class="w-full text-left px-3 py-2 rounded hover:bg-gray-700 text-sm">Manage Templates</button>
+             </div>
+        </aside>
+        
+        <!-- Chat Area -->
+        <div class="w-3/4 flex flex-col">
+            <div id="chat-history" class="flex-grow p-4 overflow-y-auto"></div>
+            <div class="p-4 border-t border-gray-700">
+                <div class="relative">
+                    <textarea id="prompt-input" placeholder="Enter your prompt..." rows="1" class="w-full bg-gray-800 rounded-lg p-3 pr-20 resize-none focus:outline-none"></textarea>
+                    <button id="send-btn" class="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-blue-600 rounded-lg hover:bg-blue-700">&rarr;</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Content Templates -->
+    <template id="name-input-template">
+        <div>
+            <p id="prompt-message" class="mb-4 text-gray-300"></p>
+            <input id="prompt-input" type="text" class="w-full bg-gray-900 rounded p-2 border border-gray-600">
+            <div class="mt-4 flex justify-end space-x-2">
+                <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-700">Cancel</button>
+                <button id="modal-confirm-btn" class="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700">Save</button>
+            </div>
+        </div>
+    </template>
+    
+     <template id="template-manager-template">
+        <div class="flex flex-col h-[70vh]">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow overflow-hidden">
+                <div class="flex flex-col">
+                    <h3 class="font-semibold mb-2">My Templates</h3>
+                    <div id="template-list" class="flex-grow bg-gray-900 p-2 rounded overflow-y-auto border border-gray-600"></div>
+                </div>
+                <div id="template-editor" class="flex flex-col">
+                    <input id="template-name" placeholder="Template Name" class="w-full bg-gray-900 rounded p-2 border border-gray-600 mb-2">
+                    <textarea id="template-content" placeholder="Template content with {{placeholders}}" rows="10" class="flex-grow w-full bg-gray-900 rounded p-2 border border-gray-600 font-mono text-sm"></textarea>
+                </div>
+            </div>
+            <div class="mt-4 flex justify-between items-center">
+                <button id="delete-template-btn" class="px-4 py-2 bg-red-800 text-white font-semibold rounded-lg hover:bg-red-900">Delete</button>
+                <div>
+                    <button id="new-template-btn" class="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-700">New</button>
+                    <button id="save-template-btn" class="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 ml-2">Save</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- NemOS Libraries -->
+    <script src="ux_console.js"></script>
+    
+    <script>
+        // --- CONFIG & INITIALIZATION ---
+        const backendApiUrl = `http://${window.location.hostname}:3000/api/ai`;
+
+        // --- DOM Elements ---
+        const aiStatusEl = document.getElementById('ai-status');
+        const modelSelect = document.getElementById('model-select');
+        const newChatBtn = document.getElementById('new-chat-btn');
+        const conversationList = document.getElementById('conversation-list');
+        const chatHistory = document.getElementById('chat-history');
+        const promptInput = document.getElementById('prompt-input');
+        const sendBtn = document.getElementById('send-btn');
+        const manageTemplatesBtn = document.getElementById('manage-templates-btn');
+
+        // --- STATE ---
+        let conversations = [];
+        let templates = [];
+        let activeConversationId = null;
+
+        // --- API & Core Logic ---
+        async function checkAiServiceStatus() {
+            try {
+                const response = await fetch(`${backendApiUrl}/status`);
+                const data = await response.json();
+                aiStatusEl.innerHTML = `<span class="h-2 w-2 rounded-full ${data.isOnline ? 'bg-green-500' : 'bg-red-500'} mr-2"></span>${data.isOnline ? 'Online' : 'Offline'}`;
+                if(data.isOnline) {
+                    populateModels(data.models);
+                }
+            } catch (error) {
+                aiStatusEl.innerHTML = `<span class="h-2 w-2 rounded-full bg-red-500 mr-2"></span>Offline`;
+            }
+        }
+        
+        async function fetchData() {
+            try {
+                const [convosRes, tplRes] = await Promise.all([
+                    fetch(`${backendApiUrl}/conversations`),
+                    fetch(`${backendApiUrl}/templates`)
+                ]);
+                conversations = await convosRes.json();
+                templates = await tplRes.json();
+                renderConversationList();
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                NemOS.feedback.showToast("Could not load initial data.", "error");
+            }
+        }
+
+        async function saveConversation(convo) {
+            try {
+                const response = await fetch(`${backendApiUrl}/conversations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(convo)
+                });
+                const savedConvo = await response.json();
+                const index = conversations.findIndex(c => c.id === savedConvo.id);
+                if (index > -1) conversations[index] = savedConvo;
+                else conversations.unshift(savedConvo);
+                activeConversationId = savedConvo.id;
+                renderConversationList();
+            } catch (error) {
+                 NemOS.feedback.showToast("Failed to save conversation.", "error");
+            }
+        }
+        
+        async function deleteConversation(convoId) {
+             try {
+                await fetch(`${backendApiUrl}/conversations/${convoId}`, { method: 'DELETE' });
+                NemOS.feedback.showToast("Conversation deleted.", "info");
+                newChat();
+                fetchData();
+            } catch (error) {
+                NemOS.feedback.showToast("Failed to delete conversation.", "error");
+            }
+        }
+
+        async function sendPrompt() {
+            const prompt = promptInput.value.trim();
+            if (!prompt) return;
+
+            const convo = conversations.find(c => c.id === activeConversationId) || { messages: [], model: modelSelect.value, name: `Chat ${new Date().toLocaleString()}` };
+            if (activeConversationId === null) {
+                convo.id = `temp_${Date.now()}`;
+            }
+            
+            convo.messages.push({ role: 'user', content: prompt });
+            renderChatHistory(convo.messages);
+            promptInput.value = '';
+            
+            const aiMessage = { role: 'assistant', content: '' };
+            convo.messages.push(aiMessage);
+            const aiMessageEl = renderChatMessage(aiMessage, convo.messages.length - 1);
+            
+            try {
+                 const response = await fetch(`${backendApiUrl}/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: convo.model,
+                        messages: convo.messages.slice(0, -1) // Send all but the empty assistant message
+                    })
+                });
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value);
+                    try {
+                        const json = JSON.parse(chunk); // Ollama sends JSON chunks
+                        aiMessage.content += json.message.content;
+                        aiMessageEl.querySelector('.markdown-body').innerHTML = marked.parse(aiMessage.content);
+                        chatHistory.scrollTop = chatHistory.scrollHeight;
+                    } catch(e) { /* Sometimes chunks aren't full JSON, ignore parsing errors */ }
+                }
+
+            } catch (error) {
+                aiMessage.content = "Error: Could not connect to AI service.";
+                aiMessageEl.querySelector('.markdown-body').innerHTML = `<p class="text-red-400">${aiMessage.content}</p>`;
+            } finally {
+                await saveConversation(convo);
+            }
+        }
+
+
+        // --- RENDERING ---
+        function populateModels(models) {
+            modelSelect.innerHTML = models.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+        }
+
+        function renderConversationList() {
+            conversationList.innerHTML = conversations.map(c => `
+                <div class="p-2 rounded cursor-pointer hover:bg-gray-700 ${c.id === activeConversationId ? 'bg-blue-600 text-white' : ''}" data-id="${c.id}">
+                    <p class="text-sm truncate">${c.name}</p>
+                </div>
+            `).join('');
+        }
+
+        function renderChatHistory(messages) {
+            chatHistory.innerHTML = messages.map(renderChatMessage).join('');
+            hljs.highlightAll();
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        function renderChatMessage(msg, index) {
+            const el = document.createElement('div');
+            el.className = `message p-4 rounded-lg mb-4 ${msg.role === 'user' ? 'message-user' : 'message-ai'}`;
+            el.innerHTML = `<div class="markdown-body">${marked.parse(msg.content || '...')}</div>`;
+            if (index === undefined) { // Append if not part of a full render
+                chatHistory.appendChild(el);
+            }
+            return el;
+        }
+        
+        function newChat() {
+            activeConversationId = null;
+            chatHistory.innerHTML = '';
+            promptInput.value = '';
+            renderConversationList();
+        }
+
+        // --- Event Handlers & Initial Load ---
+        newChatBtn.addEventListener('click', newChat);
+        sendBtn.addEventListener('click', sendPrompt);
+        promptInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendPrompt();
+            }
+        });
+
+        conversationList.addEventListener('click', (e) => {
+            const target = e.target.closest('[data-id]');
+            if (target) {
+                activeConversationId = target.dataset.id;
+                const convo = conversations.find(c => c.id === activeConversationId);
+                if (convo) {
+                    renderChatHistory(convo.messages);
+                }
+                renderConversationList();
+            }
+        });
+
+        manageTemplatesBtn.addEventListener('click', () => {
+             // Will be implemented in the next step
+             NemOS.feedback.showToast("Template manager coming soon!", "info");
+        });
+        
+        checkAiServiceStatus();
+        fetchData();
+
+    </script>
+</body>
+</html>
+

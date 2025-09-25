@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NemOS - Script Deck</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script>
+        // --- CONFIG & INITIALIZATION ---
+        const API_BASE_URL = '/api/script-deck';
+
+        // --- DOM Elements ---
+        let scriptGrid;
+        let addScriptBtn;
+        let searchBar;
+        
+        // --- STATE ---
+        let scripts = [];
+        let currentEditingScriptId = null;
+
+        // --- INITIAL LOAD ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Assign elements after DOM is loaded
+            scriptGrid = document.getElementById('script-grid');
+            addScriptBtn = document.getElementById('add-script-btn');
+            searchBar = document.getElementById('search-bar');
+            
+            // Attach listeners
+            addScriptBtn.addEventListener('click', () => showScriptModal(null));
+            searchBar.addEventListener('input', render);
+
+            // Fetch initial data
+            fetchScripts();
+
+            // Initialize SortableJS for drag-and-drop
+            new Sortable(scriptGrid, {
+                animation: 150,
+                ghostClass: 'bg-gray-700',
+                onEnd: function (evt) {
+                    const orderedIds = Array.from(scriptGrid.children).map(child => child.dataset.id);
+                    saveOrder(orderedIds);
+                }
+            });
+        });
+
+        async function saveOrder(orderedIds) {
+            try {
+                await apiRequest('/scripts/reorder', 'POST', { orderedIds });
+                NemOS.feedback.showToast('Order saved!', 'success');
+            } catch (error) {
+                NemOS.feedback.showToast('Failed to save order.', 'error');
+                fetchScripts(); // Re-fetch to show the last saved order
+            }
+        }
+
+        // --- API HELPER ---
+        async function apiRequest(endpoint, method = 'GET', body = null) {
+            try {
+                const options = {
+                    method,
+                    headers: { 'Content-Type': 'application/json' }
+                };
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'API request failed');
+                }
+                return response.status === 204 || response.status === 201 ? null : await response.json();
+            } catch (error) {
+                console.error(`API Error (${method} ${endpoint}):`, error);
+                NemOS.feedback.showToast(error.message, 'error');
+                throw error;
+            }
+        }
+
+        // --- DATABASE OPERATIONS ---
+        async function fetchScripts() {
+            scripts = await apiRequest('/scripts');
+            render();
+        }
+
+        async function saveScript(scriptData) {
+            try {
+                if (currentEditingScriptId) { // Update existing script
+                    await apiRequest(`/scripts/${currentEditingScriptId}`, 'PUT', scriptData);
+                    NemOS.feedback.showToast('Script updated successfully!', 'success');
+                } else { // Add new script
+                    const dataWithTimestamp = { 
+                        ...scriptData, 
+                        id: `script-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                        createdAt: Date.now(), 
+                        lastRunStatus: 'idle', 
+                        lastRunOutput: '' 
+                    };
+                    await apiRequest('/scripts', 'POST', dataWithTimestamp);
+                    NemOS.feedback.showToast('Script added successfully!', 'success');
+                }
+                fetchScripts();
+            } catch (error) {
+                 console.error("Error saving script: ", error);
+                 NemOS.feedback.showToast('Error saving script.', 'error');
+            }
+        }
+
+        async function deleteScript(scriptId) {
+            NemOS.feedback.confirm('Delete Script?', 'This action cannot be undone.', async () => {
+                await apiRequest(`/scripts/${scriptId}`, 'DELETE');
+                NemOS.feedback.showToast('Script deleted.', 'info');
+                fetchScripts();
+            });
+        }
+        
+        async function runScript(scriptId) {
+            const script = scripts.find(s => s.id === scriptId);
+            if (!script || !script.isExecutable) return;
+            
+            await updateItemStatus(scriptId, 'running');
+
+            try {
+                const result = await apiRequest('/run-script', 'POST', {
+                    scriptType: script.scriptType,
+                    scriptContent: script.scriptContent
+                });
+
+                await updateItemStatus(scriptId, result.success ? 'completed' : 'failed', result.output);
+                showLogModal(script, result.output);
+
+            } catch (error) {
+                console.error("Error running script:", error);
+                await updateItemStatus(scriptId, 'failed', error.message);
+                NemOS.feedback.showToast(`Script execution failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function updateItemStatus(scriptId, status, output = null) {
+            const data = { lastRunStatus: status };
+            if (output !== null) {
+                data.lastRunOutput = output;
+            }
+            await apiRequest(`/scripts/${scriptId}`, 'PUT', data);
+            fetchScripts();
+        }
+
+        // --- RENDERING & UI ---
+        function render() {
+            const filter = searchBar.value.toLowerCase();
+            const filteredScripts = scripts.filter(script => 
+                script.name.toLowerCase().includes(filter) ||
+                script.description.toLowerCase().includes(filter) ||
+                script.tags.some(tag => tag.toLowerCase().includes(filter))
+            );
+            scriptGrid.innerHTML = filteredScripts.map(createScriptCard).join('');
+            attachCardListeners();
+        }
+
+        function createScriptCard(script) {
+            const statusColors = {
+                idle: 'bg-gray-500',
+                running: 'bg-blue-500 animate-pulse',
+                completed: 'bg-green-500',
+                failed: 'bg-red-500'
+            };
+            const statusColor = statusColors[script.lastRunStatus] || 'bg-gray-500';
+            const logsIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>`;
+            const editIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
+            const deleteIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-400 hover:text-red-300"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
+            const copyIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+
+            const tagsHtml = script.tags.map(tag => `<span class="bg-gray-700 text-gray-300 text-xs px-2 py-1 rounded-full">${tag}</span>`).join(' ');
+
+            return `
+                <div class="bg-gray-800 p-4 rounded-lg flex flex-col justify-between border-t-4 border-gray-700" data-id="${script.id}">
+                    <div>
+                        <div class="flex justify-between items-start">
+                             <h3 class="font-bold text-lg">${script.name}</h3>
+                             <span class="h-3 w-3 rounded-full ${statusColor}" title="Status: ${script.lastRunStatus}"></span>
+                        </div>
+                        <p class="text-sm text-gray-400 mt-1 mb-3 h-10 overflow-hidden">${script.description}</p>
+                        <div class="flex flex-wrap gap-2 mb-2">
+                            ${tagsHtml}
+                        </div>
+                        <div class="code-container bg-gray-900 rounded-lg p-2 my-2">
+                            <pre class="text-sm font-mono overflow-auto max-h-40"><code>${script.scriptContent.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-mono bg-gray-700 px-2 py-1 rounded">${script.scriptType}</span>
+                        <div class="flex items-center space-x-2 text-gray-400">
+                            <button class="view-code-btn hover:text-white" title="Hide Code">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                            </button>
+                            <button class="logs-btn hover:text-white" title="View Logs">${logsIcon}</button>
+                            <button class="copy-btn hover:text-white" title="Copy Code">${copyIcon}</button>
+                            <button class="edit-btn hover:text-white" title="Edit Script">${editIcon}</button>
+                            <button class="delete-btn" title="Delete Script">${deleteIcon}</button>
+                            ${script.isExecutable ? `<button class="run-btn px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm">Run</button>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showScriptModal(scriptId = null) {
+            currentEditingScriptId = scriptId;
+            const script = scriptId ? scripts.find(s => s.id === scriptId) : null;
+            const template = document.getElementById('script-modal-template');
+            const content = template.content.cloneNode(true);
+
+            const title = content.querySelector('h3');
+            const nameInput = content.querySelector('#script-name');
+            const descInput = content.querySelector('#script-desc');
+            const typeSelect = content.querySelector('#script-type');
+            const contentTextarea = content.querySelector('#script-content');
+            const executableCheckbox = content.querySelector('#script-executable');
+            const tagsListEl = content.querySelector('#script-tags-list');
+            const tagsInputEl = content.querySelector('#script-tags-input');
+            
+            title.textContent = scriptId ? 'Edit Script' : 'Add New Script';
+            if(script) {
+                nameInput.value = script.name;
+                descInput.value = script.description;
+                typeSelect.value = script.scriptType;
+                contentTextarea.value = script.scriptContent;
+                executableCheckbox.checked = script.isExecutable;
+            } else {
+                 executableCheckbox.checked = true; // Default to executable for new scripts
+            }
+
+            let currentTags = script ? [...(script.tags || [])] : []; // Work with a copy of tags
+
+            function renderTags() {
+                tagsListEl.innerHTML = currentTags.map(tag => `
+                    <span class="bg-blue-600 text-white text-xs font-semibold px-2 py-1 rounded-full flex items-center">
+                        ${tag}
+                        <button data-tag="${tag}" class="remove-tag-btn ml-2 text-blue-200 hover:text-white">&times;</button>
+                    </span>
+                `).join('');
+                 tagsListEl.querySelectorAll('.remove-tag-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const tagToRemove = e.target.dataset.tag;
+                        currentTags = currentTags.filter(t => t !== tagToRemove);
+                        renderTags();
+                    });
+                });
+            }
+            renderTags();
+            
+            tagsInputEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const newTag = e.target.value.trim();
+                    if (newTag && !currentTags.includes(newTag)) {
+                        currentTags.push(newTag);
+                        renderTags();
+                    }
+                    e.target.value = '';
+                }
+            });
+            
+            const modal = NemOS.feedback.showModal(scriptId ? 'Edit Script' : 'Add New Script', content);
+            
+            const saveBtn = modal.querySelector('#save-script-btn');
+            const cancelBtn = modal.querySelector('#cancel-script-btn');
+            
+            saveBtn.addEventListener('click', () => {
+                const scriptData = {
+                    name: nameInput.value,
+                    description: descInput.value,
+                    scriptType: typeSelect.value,
+                    scriptContent: contentTextarea.value,
+                    isExecutable: executableCheckbox.checked,
+                    tags: currentTags // Include tags in saved data
+                };
+                saveScript(scriptData);
+                modal.close();
+            });
+            cancelBtn.addEventListener('click', () => modal.close());
+        }
+        
+        function showLogModal(script, outputOverride = null) {
+            const output = outputOverride !== null ? outputOverride : script.lastRunOutput;
+            const content = `<pre class="bg-gray-900 text-sm font-mono p-4 rounded-lg whitespace-pre-wrap max-h-[70vh] overflow-y-auto">${output || 'No output recorded.'}</pre>`;
+            NemOS.feedback.showModal(`Logs for ${script.name}`, content, { isRawContent: true });
+        }
+
+        // --- EVENT LISTENERS ---
+        function attachCardListeners() {
+            document.querySelectorAll('[data-id]').forEach(card => {
+                const scriptId = card.dataset.id;
+                const script = scripts.find(s => s.id === scriptId);
+                
+                card.querySelector('.logs-btn')?.addEventListener('click', () => showLogModal(script));
+                card.querySelector('.edit-btn')?.addEventListener('click', () => showScriptModal(scriptId));
+                card.querySelector('.delete-btn')?.addEventListener('click', () => deleteScript(scriptId));
+                card.querySelector('.run-btn')?.addEventListener('click', () => runScript(scriptId));
+
+                // New listeners for code view and copy
+                card.querySelector('.view-code-btn')?.addEventListener('click', (e) => {
+                    const codeContainer = card.querySelector('.code-container');
+                    codeContainer.classList.toggle('hidden');
+                    e.currentTarget.title = codeContainer.classList.contains('hidden') ? 'View Code' : 'Hide Code';
+                });
+
+                card.querySelector('.copy-btn')?.addEventListener('click', () => {
+                    if (navigator.clipboard && script) {
+                        navigator.clipboard.writeText(script.scriptContent)
+                            .then(() => NemOS.feedback.showToast('Script copied to clipboard!', 'success'))
+                            .catch(err => {
+                                console.error('Failed to copy script: ', err);
+                                NemOS.feedback.showToast('Failed to copy script.', 'error');
+                            });
+                    }
+                });
+            });
+        }
+    </script>
+</head>
+<body class="bg-gray-900 text-gray-200 h-screen flex flex-col p-4">
+    <header class="mb-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            Script Deck
+        </h1>
+        <div class="flex items-center space-x-2">
+            <input id="search-bar" type="text" placeholder="Search scripts..." class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+            <button id="add-script-btn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Add New Script</button>
+        </div>
+    </header>
+    <main id="script-grid" class="flex-grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto pr-2">
+        <!-- Script cards will be injected here -->
+    </main>
+    
+    <!-- Modal Content Template -->
+    <template id="script-modal-template">
+        <div class="space-y-4">
+            <h3 class="text-lg font-bold">Modal Title</h3>
+            <input id="script-name" type="text" placeholder="Script Name" class="w-full bg-gray-900 rounded p-2 border border-gray-600">
+            <textarea id="script-desc" placeholder="A brief description of what this script does." rows="2" class="w-full bg-gray-900 rounded p-2 border border-gray-600"></textarea>
+            <select id="script-type" class="w-full bg-gray-900 rounded p-2 border border-gray-600">
+                <option value="bash">Bash</option>
+                <option value="powershell">PowerShell</option>
+                <option value="ahk">AHK</option>
+            </select>
+            <textarea id="script-content" placeholder="#!/bin/bash&#10;echo 'Hello from NemOS!'" rows="10" class="w-full bg-gray-900 rounded p-2 border border-gray-600 font-mono text-sm"></textarea>
+            <div class="flex items-center">
+                <input id="script-executable" type="checkbox" class="h-4 w-4 bg-gray-900 border-gray-600 rounded text-blue-600 focus:ring-blue-500">
+                <label for="script-executable" class="ml-2 block text-sm text-gray-300">Make this script executable on host (show 'Run' button)</label>
+            </div>
+             <div class="mt-4">
+                <label class="block text-sm font-medium text-gray-400 mb-2">Tags</label>
+                <div id="script-tags-list" class="flex flex-wrap gap-2 mb-2">
+                    <!-- Tags will be rendered here -->
+                </div>
+                <input id="script-tags-input" type="text" placeholder="Add a tag and press Enter" class="w-full bg-gray-900 rounded p-2 border border-gray-600">
+            </div>
+        </div>
+        <div class="mt-6 flex justify-end space-x-2">
+            <button id="cancel-script-btn" class="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-700">Cancel</button>
+            <button id="save-script-btn" class="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700">Save</button>
+        </div>
+    </template>
+    
+    <!-- NemOS Libraries -->
+    <script src="ux_console.js"></script>
+</body>
+</html>
+

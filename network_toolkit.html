@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NemOS - Network Toolkit</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://rsms.me/inter/inter.css');
+        body { font-family: 'Inter', sans-serif; }
+        .tab.active {
+            border-bottom-color: #3b82f6; /* blue-500 */
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 h-screen flex flex-col p-4">
+
+    <header class="mb-4">
+        <h1 class="text-2xl font-bold flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            Network Toolkit
+        </h1>
+    </header>
+
+    <main class="flex-grow flex flex-col border border-gray-700 rounded-lg overflow-hidden">
+        <!-- Tabs -->
+        <div class="flex border-b border-gray-700">
+            <button data-tab="scan" class="tab active px-4 py-3 text-gray-400 border-b-2 border-transparent">Scan</button>
+            <button data-tab="ping" class="tab px-4 py-3 text-gray-400 border-b-2 border-transparent">Ping</button>
+            <button data-tab="dns" class="tab px-4 py-3 text-gray-400 border-b-2 border-transparent">DNS Lookup</button>
+            <button data-tab="traceroute" class="tab px-4 py-3 text-gray-400 border-b-2 border-transparent">Traceroute</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="p-6 flex-grow bg-gray-800 overflow-y-auto">
+            <!-- Scan -->
+            <div id="scan-content" class="tab-content">
+                <h2 class="text-xl font-semibold mb-4">Nmap Scan</h2>
+                <p class="text-gray-400 mb-4">Perform a quick scan (-F) on a target IP or range.</p>
+                <div class="flex items-center mb-4">
+                    <input id="scan-target" type="text" placeholder="e.g., 192.168.1.1 or scanme.nmap.org" class="flex-grow bg-gray-900 rounded-l p-2 border border-gray-600 font-mono">
+                    <button id="scan-btn" class="bg-blue-600 text-white px-4 py-2 rounded-r hover:bg-blue-700">Scan</button>
+                </div>
+                <pre class="command-output bg-gray-900 p-4 rounded-lg whitespace-pre-wrap max-h-96 overflow-y-auto"></pre>
+            </div>
+
+            <!-- Ping -->
+            <div id="ping-content" class="tab-content hidden">
+                <h2 class="text-xl font-semibold mb-4">Live Ping</h2>
+                <p class="text-gray-400 mb-4">Send ICMP packets to a host to test connectivity.</p>
+                <div class="flex items-center mb-4">
+                    <input id="ping-host" type="text" placeholder="e.g., 8.8.8.8 or google.com" class="flex-grow bg-gray-900 rounded-l p-2 border border-gray-600 font-mono">
+                    <button id="ping-btn" class="bg-blue-600 text-white px-4 py-2 rounded-r hover:bg-blue-700">Start Ping</button>
+                </div>
+                <pre class="command-output bg-gray-900 p-4 rounded-lg whitespace-pre-wrap max-h-96 overflow-y-auto"></pre>
+            </div>
+
+            <!-- DNS Lookup -->
+            <div id="dns-content" class="tab-content hidden">
+                 <h2 class="text-xl font-semibold mb-4">DNS Lookup</h2>
+                <p class="text-gray-400 mb-4">Perform a `dig` on a domain to check its DNS records.</p>
+                <div class="flex items-center mb-4">
+                    <input id="dns-domain" type="text" placeholder="e.g., google.com" class="flex-grow bg-gray-900 rounded-l p-2 border border-gray-600 font-mono">
+                    <button id="dns-btn" class="bg-blue-600 text-white px-4 py-2 rounded-r hover:bg-blue-700">Lookup</button>
+                </div>
+                <pre class="command-output bg-gray-900 p-4 rounded-lg whitespace-pre-wrap max-h-96 overflow-y-auto"></pre>
+            </div>
+
+            <!-- Traceroute -->
+            <div id="traceroute-content" class="tab-content hidden">
+                <h2 class="text-xl font-semibold mb-4">Traceroute</h2>
+                <p class="text-gray-400 mb-4">Trace the path packets take to a network host.</p>
+                <div class="flex items-center mb-4">
+                    <input id="traceroute-host" type="text" placeholder="e.g., 1.1.1.1 or cloudflare.com" class="flex-grow bg-gray-900 rounded-l p-2 border border-gray-600 font-mono">
+                    <button id="traceroute-btn" class="bg-blue-600 text-white px-4 py-2 rounded-r hover:bg-blue-700">Trace</button>
+                </div>
+                <pre class="command-output bg-gray-900 p-4 rounded-lg whitespace-pre-wrap max-h-96 overflow-y-auto"></pre>
+            </div>
+        </div>
+    </main>
+
+    <!-- NemOS Libraries -->
+    <script src="ux_console.js"></script>
+    
+    <script>
+        // --- CONFIG & INITIALIZATION ---
+        const backendApiUrl = `http://${window.location.hostname}:3000/api/network`;
+        const backendWsUrl = `ws://${window.location.hostname}:3000/api/network`;
+
+        // --- DOM Elements ---
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        let pingSocket = null;
+
+        // Helper to get the current active output element
+        function getActiveOutputElement() {
+            const activeTabContent = document.querySelector('.tab-content:not(.hidden)');
+            return activeTabContent ? activeTabContent.querySelector('.command-output') : null;
+        }
+
+        // --- Tab Switching Logic ---
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                if (pingSocket) {
+                    pingSocket.close();
+                }
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                tabContents.forEach(c => c.classList.add('hidden'));
+                const activeContent = document.getElementById(`${tab.dataset.tab}-content`);
+                activeContent.classList.remove('hidden');
+                const currentOutput = activeContent.querySelector('.command-output');
+                if (currentOutput) {
+                    currentOutput.textContent = ''; // Clear output on tab switch
+                }
+            });
+        });
+
+        // --- Generic API Handler for single-shot commands ---
+        async function runCommand(tool, payload, buttonEl) {
+            buttonEl.disabled = true;
+            const currentOutput = getActiveOutputElement();
+            if (currentOutput) {
+                currentOutput.textContent = `Running ${tool}...\n`;
+            }
+            NemOS.feedback.showToast(`Running ${tool}...`, 'info');
+            try {
+                const response = await fetch(`${backendApiUrl}/${tool}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (currentOutput) {
+                    currentOutput.textContent = result.output;
+                }
+
+            } catch (error) {
+                console.error(`Error running ${tool}:`, error);
+                if (currentOutput) {
+                    currentOutput.textContent = `Error running ${tool}: ${error.message}`;
+                }
+                NemOS.feedback.showToast(`${tool} failed to execute.`, 'error');
+            } finally {
+                buttonEl.disabled = false;
+            }
+        }
+        
+                // --- Scan Logic ---
+                const scanBtn = document.getElementById('scan-btn');
+                const scanTargetInput = document.getElementById('scan-target');
+                scanBtn.addEventListener('click', () => {
+                    const target = scanTargetInput.value.trim();
+                    if (target) runCommand('scan', { target }, scanBtn);
+                });
+                scanTargetInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        scanBtn.click();
+                    }
+                });
+        
+                // --- Ping Logic ---
+                const pingBtn = document.getElementById('ping-btn');
+                const pingHostInput = document.getElementById('ping-host');
+        
+                pingBtn.addEventListener('click', () => {
+                    if (pingSocket) {
+                        pingSocket.close();
+                        return;
+                    }
+                    const host = pingHostInput.value.trim();
+                    if (!host) return;
+        
+                    const currentOutput = getActiveOutputElement();
+                    if (currentOutput) {
+                        currentOutput.textContent = `Pinging ${host}...\n`;
+                    }
+                    pingSocket = new WebSocket(`${backendWsUrl}/ping?host=${encodeURIComponent(host)}`);
+                    pingBtn.textContent = "Stop Ping";
+                    pingBtn.classList.replace('bg-blue-600', 'bg-red-600');
+        
+                    pingSocket.onmessage = (event) => {
+                        if (currentOutput) {
+                            currentOutput.textContent += event.data;
+                        }
+                    };
+                    pingSocket.onerror = () => {
+                        if (currentOutput) {
+                            currentOutput.textContent += '\n--- Error connecting to ping service. ---\n';
+                        }
+                        NemOS.feedback.showToast('Ping connection failed.', 'error');
+                    };
+                    pingSocket.onclose = () => {
+                        if (currentOutput) {
+                            currentOutput.textContent += '\n--- Ping stopped. ---\n';
+                        }
+                        pingSocket = null;
+                        pingBtn.textContent = "Start Ping";
+                        pingBtn.classList.replace('bg-red-600', 'bg-blue-600');
+                    };
+                });
+                pingHostInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        pingBtn.click();
+                    }
+                });
+                
+                // --- DNS Logic ---
+                const dnsBtn = document.getElementById('dns-btn');
+                const dnsDomainInput = document.getElementById('dns-domain');
+                dnsBtn.addEventListener('click', () => {
+                    const domain = dnsDomainInput.value.trim();
+                    if(domain) runCommand('dns', { domain }, dnsBtn);
+                });
+                dnsDomainInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        dnsBtn.click();
+                    }
+                });
+                
+                // --- Traceroute Logic ---
+                const tracerouteBtn = document.getElementById('traceroute-btn');
+                const tracerouteHostInput = document.getElementById('traceroute-host');
+                tracerouteBtn.addEventListener('click', () => {
+                    const host = tracerouteHostInput.value.trim();
+                    if(host) runCommand('traceroute', { host }, tracerouteBtn);
+                });
+                tracerouteHostInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        tracerouteBtn.click();
+                    }
+                });
+    </script>
+
+</body>
+</html>
+

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NemOS - Interactive Shell</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Xterm.js Files -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background-color: #1a202c; /* bg-gray-900 */
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+        @import url('https://rsms.me/inter/inter.css');
+        .terminal-instance {
+            width: 100%;
+            height: 100%;
+        }
+        .xterm .xterm-viewport {
+            width: 100% !important; /* Fix for potential scrollbar issues */
+        }
+        /* Custom scrollbar for clipboard */
+        #clipboard-list::-webkit-scrollbar {
+            width: 8px;
+        }
+        #clipboard-list::-webkit-scrollbar-track {
+            background: #2d3748; /* bg-gray-800 */
+        }
+        #clipboard-list::-webkit-scrollbar-thumb {
+            background: #4a5568; /* bg-gray-700 */
+            border-radius: 4px;
+        }
+        .tab {
+            transition: background-color 0.2s ease-in-out;
+        }
+        .tab.active {
+            background-color: #1a202c; /* bg-gray-900 */
+            color: #e2e8f0; /* text-gray-200 */
+        }
+        .terminal-instance:not(.active) {
+            display: none;
+        }
+    </style>
+</head>
+<body class="flex h-screen">
+
+    <!-- Temp Clipboard Sidebar -->
+    <aside class="w-80 flex-shrink-0 bg-gray-800 flex flex-col p-4 border-r border-gray-700">
+        <h2 class="text-lg font-bold text-white mb-4 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            Temp Clipboard
+        </h2>
+        <div class="mb-4">
+            <textarea id="clipboard-input" placeholder="Add a command or snippet..." rows="3" class="w-full bg-gray-900 text-gray-200 rounded p-2 border border-gray-600 focus:ring-2 focus:ring-blue-500 text-sm"></textarea>
+            <div class="flex space-x-2 mt-2">
+                <button id="add-clipboard-btn" class="w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">Add Snippet</button>
+                <button id="clear-clipboard-btn" class="w-full px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors">Clear All</button>
+            </div>
+        </div>
+        <div id="clipboard-list" class="flex-grow overflow-y-auto pr-1">
+            <!-- Items will be injected here -->
+        </div>
+    </aside>
+
+    <!-- Main Content (Terminal) -->
+    <main class="flex-grow flex flex-col bg-gray-900">
+        <div id="tabs-container" class="flex-shrink-0 bg-gray-800 flex items-center">
+            <!-- Tabs will be injected here -->
+            <button id="add-tab-btn" class="p-2 m-1 bg-gray-700 hover:bg-gray-600 rounded text-white">+</button>
+        </div>
+        <div id="terminal-container" class="flex-grow p-2">
+            <!-- Terminal instances will be injected here -->
+        </div>
+    </main>
+
+    <!-- NemOS Libraries -->
+    <script src="ux_console.js"></script>
+
+    <!-- Container Selection Modal -->
+    <div id="container-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h3 class="text-xl font-bold text-white mb-4">Select a Container to Shell Into</h3>
+            <div id="container-list" class="max-h-80 overflow-y-auto">
+                <!-- Container list will be populated here -->
+            </div>
+            <button id="close-modal-btn" class="mt-4 w-full px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const terminalContainer = document.getElementById('terminal-container');
+        const tabsContainer = document.getElementById('tabs-container');
+        const addTabBtn = document.getElementById('add-tab-btn');
+        const clipboardInput = document.getElementById('clipboard-input');
+        const addClipboardBtn = document.getElementById('add-clipboard-btn');
+        const clipboardList = document.getElementById('clipboard-list');
+        
+        // --- State ---
+        let tempClipboardItems = JSON.parse(localStorage.getItem('tempClipboardItems') || '[]');
+        let terminals = {}; // Store terminal instances and related data
+        let activeTabId = null;
+
+        // Function to save clipboard items to localStorage
+        function saveClipboardItems() {
+            localStorage.setItem('tempClipboardItems', JSON.stringify(tempClipboardItems));
+        }
+
+        // --- Terminal Management ---
+        function createTerminal(id, name, wsUrl) {
+            const termEl = document.createElement('div');
+            termEl.id = `term-${id}`;
+            termEl.classList.add('terminal-instance');
+            terminalContainer.appendChild(termEl);
+
+            const term = new Terminal({
+                cursorBlink: true,
+                fontFamily: 'monospace',
+                fontSize: 14,
+                theme: {
+                    background: '#1a202c', // bg-gray-900
+                    foreground: '#cbd5e0', // text-gray-300
+                    cursor: '#ffffff',
+                }
+            });
+
+            const fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+            term.open(termEl);
+            
+            const ws = new WebSocket(wsUrl);
+
+            terminals[id] = {
+                id,
+                name,
+                element: termEl,
+                term,
+                fitAddon,
+                ws
+            };
+
+            ws.onopen = () => {
+                term.writeln(`--- NemOS: ${name} Connected ---`);
+                const initialSize = { cols: term.cols, rows: term.rows };
+                ws.send(JSON.stringify({ type: 'resize', data: initialSize }));
+                setTimeout(() => fitAddon.fit(), 1);
+            };
+            ws.onmessage = (event) => term.write(event.data);
+            ws.onerror = (error) => {
+                term.writeln(`\r\n\x1b[31m--- WebSocket Error --- \x1b[0m`);
+                NemOS.feedback.showToast(`Could not connect to ${name}.`, 'error');
+            }
+            ws.onclose = () => term.writeln(`\r\n\x1b[31m--- ${name} Disconnected --- \x1b[0m`);
+            term.onData(data => ws.send(JSON.stringify({ type: 'input', data: data })));
+            term.onResize(size => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'resize', data: { cols: size.cols, rows: size.rows } }));
+                }
+            });
+
+            createTab(id, name);
+            return id;
+        }
+
+        function createTab(id, name) {
+            const tab = document.createElement('div');
+            tab.id = `tab-${id}`;
+            tab.classList.add('tab', 'py-2', 'px-4', 'cursor-pointer', 'text-gray-400', 'bg-gray-700', 'rounded-t-md', 'ml-1');
+            tab.textContent = name;
+            tab.dataset.id = id;
+
+            tab.addEventListener('click', () => setActiveTab(id));
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '&times;';
+            closeBtn.classList.add('ml-2', 'hover:text-white');
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                closeTab(id);
+            });
+            if (id !== 'host') { // Don't allow closing host
+                tab.appendChild(closeBtn);
+            }
+
+            tabsContainer.insertBefore(tab, addTabBtn);
+        }
+
+        function setActiveTab(id) {
+            if (activeTabId) {
+                document.getElementById(`tab-${activeTabId}`).classList.remove('active');
+                terminals[activeTabId].element.classList.remove('active');
+            }
+            document.getElementById(`tab-${id}`).classList.add('active');
+            terminals[id].element.classList.add('active');
+            activeTabId = id;
+            terminals[id].term.focus();
+            terminals[id].fitAddon.fit();
+        }
+
+        function closeTab(id) {
+            const { ws, element } = terminals[id];
+            ws.close();
+            element.remove();
+            document.getElementById(`tab-${id}`).remove();
+            delete terminals[id];
+
+            if (activeTabId === id) {
+                const remainingIds = Object.keys(terminals);
+                if (remainingIds.length > 0) {
+                    setActiveTab(remainingIds[0]);
+                } else {
+                    activeTabId = null;
+                }
+            }
+        }
+
+        // --- Initial Host Terminal ---
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const hostWsUrl = `${wsProtocol}//${window.location.hostname}:3000/api/shell`;
+        const hostId = createTerminal('host', 'Host', hostWsUrl);
+        setActiveTab(hostId);
+
+        // --- Handle Resizing ---
+        window.addEventListener('resize', () => {
+            if (activeTabId && terminals[activeTabId]) {
+                terminals[activeTabId].fitAddon.fit();
+            }
+        });
+
+        // --- Docker Container Logic ---
+        const containerModal = document.getElementById('container-modal');
+        const containerList = document.getElementById('container-list');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+
+        addTabBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('http://' + window.location.hostname + ':3000/api/docker/running-containers');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch containers.');
+                }
+                const containers = await response.json();
+                
+                containerList.innerHTML = containers.map(c => `
+                    <div data-id="${c.Id}" data-name="${c.Name}" class="container-item p-3 bg-gray-700 rounded hover:bg-gray-600 cursor-pointer mb-2">
+                        <span class="font-bold text-white">${c.Name}</span>
+                        <p class="text-sm text-gray-400 truncate">${c.Id}</p>
+                    </div>
+                `).join('');
+
+                containerModal.classList.remove('hidden');
+                containerModal.classList.add('flex');
+
+            } catch (error) {
+                console.error('Error fetching containers:', error);
+                NemOS.feedback.showToast(error.message, 'error');
+            }
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            containerModal.classList.add('hidden');
+            containerModal.classList.remove('flex');
+        });
+
+        containerList.addEventListener('click', (e) => {
+            const item = e.target.closest('.container-item');
+            if (!item) return;
+
+            const containerId = item.dataset.id;
+            const containerName = item.dataset.name;
+            
+            const wsUrl = `${wsProtocol}//${window.location.hostname}:3000/api/docker/shell/${containerId}`;
+            const newTabId = createTerminal(containerId, containerName, wsUrl);
+            setActiveTab(newTabId);
+
+            containerModal.classList.add('hidden');
+            containerModal.classList.remove('flex');
+        });
+
+        // --- Temp Clipboard Logic ---
+        function renderClipboard() {
+            clipboardList.innerHTML = tempClipboardItems.map((item, index) => `
+                <div class="bg-gray-700 p-2 rounded-lg mb-2">
+                    <pre class="text-sm whitespace-pre-wrap font-mono text-gray-300">${item}</pre>
+                    <div class="flex items-center justify-end space-x-2 mt-2">
+                        <button data-index="${index}" class="copy-btn text-gray-400 hover:text-white" title="Copy to clipboard">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        </button>
+                        <button data-index="${index}" class="paste-btn text-gray-400 hover:text-white" title="Paste into terminal">
+                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"></polyline><line x1="12" y1="12" x2="12" y2="21"></line><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path><polyline points="16 16 12 12 8 16"></polyline></svg>
+                        </button>
+                        <button data-index="${index}" class="delete-btn text-red-400 hover:text-red-300" title="Delete snippet">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        addClipboardBtn.addEventListener('click', () => {
+            const content = clipboardInput.value.trim();
+            if (content) {
+                tempClipboardItems.unshift(content); // Add to the top of the list
+                clipboardInput.value = '';
+                saveClipboardItems(); // Save to localStorage
+                renderClipboard();
+            }
+        });
+
+        const clearClipboardBtn = document.getElementById('clear-clipboard-btn');
+        clearClipboardBtn.addEventListener('click', () => {
+            tempClipboardItems = [];
+            saveClipboardItems(); // Save to localStorage
+            renderClipboard();
+            NemOS.feedback.showToast('Clipboard cleared!', 'info');
+        });
+
+        clipboardList.addEventListener('click', (e) => {
+            const button = e.target.closest('button');
+            if (!button) return;
+
+            const index = button.dataset.index;
+            const content = tempClipboardItems[index];
+
+            if (button.classList.contains('copy-btn')) {
+                navigator.clipboard.writeText(content);
+                NemOS.feedback.showToast('Copied to clipboard!', 'success');
+            } else if (button.classList.contains('paste-btn')) {
+                if (activeTabId && terminals[activeTabId]) {
+                    terminals[activeTabId].term.write(content);
+                    terminals[activeTabId].term.focus();
+                    NemOS.feedback.showToast('Pasted into terminal!', 'info');
+                }
+            } else if (button.classList.contains('delete-btn')) {
+                tempClipboardItems.splice(index, 1);
+                saveClipboardItems(); // Save to localStorage
+                renderClipboard();
+            }
+        });
+
+        // Initial render of clipboard items on page load
+        renderClipboard();
+    </script>
+</body>
+</html>

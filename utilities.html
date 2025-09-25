@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NemOS - Utilities</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://rsms.me/inter/inter.css');
+        body { font-family: 'Inter', sans-serif; }
+        .tab.active {
+            border-bottom-color: #3b82f6; /* blue-500 */
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 h-screen flex flex-col p-4">
+
+    <header class="mb-4">
+        <h1 class="text-2xl font-bold flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="M12.22 2h-4.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.44.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2.73l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.44.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h4.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.44-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2.73l.15.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.44-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            Utilities
+        </h1>
+    </header>
+
+    <main class="flex-grow flex flex-col border border-gray-700 rounded-lg overflow-hidden">
+        <!-- Tabs -->
+        <div class="flex border-b border-gray-700">
+            <button data-tab="stripper" class="tab active px-4 py-3 text-gray-400 border-b-2 border-transparent">URL Stripper</button>
+            <button data-tab="formatter" class="tab px-4 py-3 text-gray-400 border-b-2 border-transparent">Text Formatter</button>
+            <button data-tab="resolver" class="tab px-4 py-3 text-gray-400 border-b-2 border-transparent">URL Resolver</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="p-6 flex-grow bg-gray-800 overflow-y-auto">
+            <!-- URL Stripper -->
+            <div id="stripper-content" class="tab-content">
+                <h2 class="text-xl font-semibold mb-4">URL Stripper</h2>
+                <p class="text-gray-400 mb-4">Paste a full URL to extract the domain name.</p>
+                <div class="space-y-4">
+                    <textarea id="stripper-input" placeholder="https://sub.example.co.uk/path?query=1" rows="3" class="w-full bg-gray-900 rounded p-2 border border-gray-600 font-mono"></textarea>
+                    <div class="flex items-center">
+                        <input id="stripper-output" type="text" readonly class="flex-grow bg-gray-700 rounded-l p-2 border border-gray-600 font-mono">
+                        <button id="stripper-copy-btn" class="bg-blue-600 text-white px-4 py-2 rounded-r hover:bg-blue-700">Copy</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Text Formatter -->
+            <div id="formatter-content" class="tab-content hidden">
+                <h2 class="text-xl font-semibold mb-4">Text Formatter</h2>
+                <p class="text-gray-400 mb-4">Clean and normalize text from any source.</p>
+                <div class="grid grid-cols-2 gap-6">
+                    <textarea id="formatter-input" placeholder="Paste text here..." rows="10" class="w-full bg-gray-900 rounded p-2 border border-gray-600 font-mono"></textarea>
+                    <textarea id="formatter-output" readonly rows="10" class="w-full bg-gray-700 rounded p-2 border border-gray-600 font-mono"></textarea>
+                </div>
+                <div class="mt-4 flex flex-wrap gap-4">
+                    <label class="flex items-center"><input type="checkbox" id="trim-whitespace" checked class="h-4 w-4 bg-gray-900 border-gray-600 rounded text-blue-600"> <span class="ml-2">Trim Whitespace</span></label>
+                    <label class="flex items-center"><input type="checkbox" id="collapse-spaces" checked class="h-4 w-4 bg-gray-900 border-gray-600 rounded text-blue-600"> <span class="ml-2">Collapse Spaces</span></label>
+                    <label class="flex items-center"><input type="checkbox" id="collapse-newlines" class="h-4 w-4 bg-gray-900 border-gray-600 rounded text-blue-600"> <span class="ml-2">Collapse Newlines</span></label>
+                    <label class="flex items-center"><input type="checkbox" id="to-lowercase" class="h-4 w-4 bg-gray-900 border-gray-600 rounded text-blue-600"> <span class="ml-2">To Lowercase</span></label>
+                    <label class="flex items-center"><input type="checkbox" id="to-uppercase" class="h-4 w-4 bg-gray-900 border-gray-600 rounded text-blue-600"> <span class="ml-2">To Uppercase</span></label>
+                </div>
+                <button id="format-btn" class="mt-4 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Format & Copy</button>
+            </div>
+
+            <!-- URL Resolver -->
+            <div id="resolver-content" class="tab-content hidden">
+                <h2 class="text-xl font-semibold mb-4">URL Resolver</h2>
+                <p class="text-gray-400 mb-4">Find the final destination of a shortened or tracking link.</p>
+                <div class="flex items-center">
+                    <input id="resolver-input" type="text" placeholder="https://t.co/xyz123" class="flex-grow bg-gray-900 rounded-l p-2 border border-gray-600 font-mono">
+                    <button id="resolver-btn" class="bg-blue-600 text-white px-4 py-2 rounded-r hover:bg-blue-700">Resolve</button>
+                </div>
+                <div id="resolver-output" class="mt-4 bg-gray-900 p-4 rounded-lg hidden"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- NemOS Libraries -->
+    <script src="ux_console.js"></script>
+    
+    <script>
+        // --- CONFIG & INITIALIZATION ---
+        const backendApiUrl = `http://${window.location.hostname}:3000/api/utils`;
+
+        // --- DOM Elements ---
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        // --- Tab Switching Logic ---
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                tabContents.forEach(c => c.classList.add('hidden'));
+                document.getElementById(`${tab.dataset.tab}-content`).classList.remove('hidden');
+            });
+        });
+
+        // --- URL Stripper Logic ---
+        const stripperInput = document.getElementById('stripper-input');
+        const stripperOutput = document.getElementById('stripper-output');
+        const stripperCopyBtn = document.getElementById('stripper-copy-btn');
+
+        stripperInput.addEventListener('input', () => {
+            try {
+                const url = new URL(stripperInput.value.trim());
+                stripperOutput.value = url.hostname;
+            } catch (error) {
+                stripperOutput.value = 'Invalid URL';
+            }
+        });
+        stripperCopyBtn.addEventListener('click', () => {
+            if (stripperOutput.value && stripperOutput.value !== 'Invalid URL') {
+                navigator.clipboard.writeText(stripperOutput.value);
+                NemOS.feedback.showToast('Domain copied!', 'success');
+            }
+        });
+
+        // --- Text Formatter Logic ---
+        const formatterInput = document.getElementById('formatter-input');
+        const formatterOutput = document.getElementById('formatter-output');
+        const formatBtn = document.getElementById('format-btn');
+
+        function formatText() {
+            let text = formatterInput.value;
+            if (document.getElementById('trim-whitespace').checked) text = text.trim();
+            if (document.getElementById('collapse-spaces').checked) text = text.replace(/\s+/g, ' ');
+            if (document.getElementById('collapse-newlines').checked) text = text.replace(/(\r\n|\n|\r){2,}/g, '\n\n');
+            if (document.getElementById('to-lowercase').checked) text = text.toLowerCase();
+            if (document.getElementById('to-uppercase').checked) text = text.toUpperCase();
+            formatterOutput.value = text;
+            return text;
+        }
+
+        formatterInput.addEventListener('input', formatText);
+        ['trim-whitespace', 'collapse-spaces', 'collapse-newlines', 'to-lowercase', 'to-uppercase'].forEach(id => {
+            document.getElementById(id).addEventListener('change', formatText);
+        });
+        
+        formatBtn.addEventListener('click', () => {
+            const formattedText = formatText();
+            if(formattedText) {
+                navigator.clipboard.writeText(formattedText);
+                NemOS.feedback.showToast('Formatted text copied!', 'success');
+            }
+        });
+
+        // --- URL Resolver Logic ---
+        const resolverInput = document.getElementById('resolver-input');
+        const resolverBtn = document.getElementById('resolver-btn');
+        const resolverOutput = document.getElementById('resolver-output');
+
+        resolverBtn.addEventListener('click', async () => {
+            const url = resolverInput.value.trim();
+            if (!url) return;
+
+            resolverOutput.classList.remove('hidden');
+            resolverOutput.innerHTML = `<p class="text-yellow-400">Resolving...</p>`;
+            resolverBtn.disabled = true;
+
+            try {
+                const response = await fetch(`${backendApiUrl}/resolve-url`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                const result = await response.json();
+
+                if (response.ok) {
+                    let html = `<p class="font-semibold text-green-400">Final URL:</p><p class="font-mono break-all">${result.finalUrl}</p>`;
+                    if (result.hops && result.hops.length > 1) {
+                        html += `<p class="font-semibold mt-4 text-gray-400">Redirects:</p><ol class="list-decimal list-inside text-sm font-mono text-gray-500">`;
+                        result.hops.forEach(hop => html += `<li>${hop}</li>`);
+                        html += `</ol>`;
+                    }
+                    resolverOutput.innerHTML = html;
+                } else {
+                    throw new Error(result.error || 'Failed to resolve URL');
+                }
+            } catch (error) {
+                resolverOutput.innerHTML = `<p class="font-semibold text-red-400">Error:</p><p>${error.message}</p>`;
+            } finally {
+                resolverBtn.disabled = false;
+            }
+        });
+    </script>
+
+</body>
+</html>
+
