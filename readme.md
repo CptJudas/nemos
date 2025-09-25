@@ -51,10 +51,25 @@ Clone the repository:
 
   Step 3: Run the Application
 
-  Start the backend server just like you would on your original machine.
+  The `install.sh` script will automatically start the backend server for you using a process manager. You do not need to run it manually.
 
-   1 node backend/server.js
+  To control the server, you can now use the following scripts:
+  - `./start.sh` - Starts the backend server.
+  - `./stop.sh` - Stops the backend server.
+
+  You can check the status and logs of the server at any time with the command: `pm2 status`
 
 Access NemOS:
 Once the containers are running, you can access the NemOS dashboard by navigating to http://your-server-ip:port in your web browser.
 
+### Step 4: Final Configuration (One-Time Setup)
+
+The `install.sh` script uses a process manager called `pm2` to ensure the backend server runs as a persistent service. To make the server start automatically when the system boots, you need to run one final command.
+
+After the `install.sh` script finishes, it will print a command to your screen. **You must copy this command and run it.** It will look something like this:
+
+```bash
+sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u your_username --hp /home/your_username
+```
+
+Once you run that command, the setup is complete. The NemOS server will now start automatically every time you reboot your machine.
