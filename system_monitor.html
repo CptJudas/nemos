@@ -10,6 +10,24 @@
     <style>
         @import url('https://rsms.me/inter/inter.css');
         body { font-family: 'Inter', sans-serif; }
+        
+        /* Custom scrollbar for desktop */
+        @media (hover: hover) and (pointer: fine) {
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+            ::-webkit-scrollbar-track {
+                background: #1f2937; /* bg-gray-800 */
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #4b5563; /* bg-gray-600 */
+                border-radius: 4px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #6b7280; /* bg-gray-500 */
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-200 h-screen flex flex-col p-4">
@@ -26,7 +44,7 @@
         <div class="bg-gray-800 p-4 rounded-lg flex flex-col">
             <h2 class="text-lg font-semibold text-gray-400">CPU Usage</h2>
             <div class="flex-grow flex items-center justify-center">
-                <p id="cpu-load" class="text-5xl font-bold">--%</p>
+                <p id="cpu-load" class="text-3xl sm:text-5xl font-bold">--%</p>
             </div>
             <div class="h-24"><canvas id="cpu-chart"></canvas></div>
         </div>
@@ -35,12 +53,12 @@
         <div class="bg-gray-800 p-4 rounded-lg flex flex-col">
             <h2 class="text-lg font-semibold text-gray-400">Memory Usage</h2>
             <div class="flex-grow flex flex-col items-center justify-center">
-                <div class="relative w-32 h-32">
+                <div class="relative w-24 h-24 sm:w-32 sm:h-32">
                     <svg class="w-full h-full" viewBox="0 0 36 36">
                         <path class="text-gray-700" stroke-width="3" fill="none" stroke="currentColor" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
                         <path id="mem-ring" class="text-blue-500" stroke-width="3" fill="none" stroke="currentColor" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
                     </svg>
-                    <div id="mem-percent" class="absolute inset-0 flex items-center justify-center text-3xl font-bold">--%</div>
+                    <div id="mem-percent" class="absolute inset-0 flex items-center justify-center text-xl sm:text-3xl font-bold">--%</div>
                 </div>
                 <p id="mem-text" class="mt-4 text-sm text-gray-400">-- GB / -- GB</p>
             </div>
@@ -65,14 +83,14 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-400 mr-3"><path d="M12 19V5"></path><polyline points="5 12 12 5 19 12"></polyline></svg>
                     <div>
                         <p class="text-xs text-gray-400">Upload</p>
-                        <p id="net-upload" class="text-2xl font-semibold">-- KB/s</p>
+                        <p id="net-upload" class="text-lg sm:text-2xl font-semibold">-- KB/s</p>
                     </div>
                 </div>
                 <div class="flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-400 mr-3"><path d="M12 5v14"></path><polyline points="19 12 12 19 5 12"></polyline></svg>
                     <div>
                         <p class="text-xs text-gray-400">Download</p>
-                        <p id="net-download" class="text-2xl font-semibold">-- KB/s</p>
+                        <p id="net-download" class="text-lg sm:text-2xl font-semibold">-- KB/s</p>
                     </div>
                 </div>
             </div>

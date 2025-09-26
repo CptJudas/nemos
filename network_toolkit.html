@@ -12,6 +12,24 @@
             border-bottom-color: #3b82f6; /* blue-500 */
             color: #ffffff;
         }
+        
+        /* Custom scrollbar for desktop */
+        @media (hover: hover) and (pointer: fine) {
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+            ::-webkit-scrollbar-track {
+                background: #1f2937; /* bg-gray-800 */
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #4b5563; /* bg-gray-600 */
+                border-radius: 4px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #6b7280; /* bg-gray-500 */
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-200 h-screen flex flex-col p-4">
@@ -25,11 +43,11 @@
 
     <main class="flex-grow flex flex-col border border-gray-700 rounded-lg overflow-hidden">
         <!-- Tabs -->
-        <div class="flex border-b border-gray-700">
-            <button data-tab="scan" class="tab active px-4 py-3 text-gray-400 border-b-2 border-transparent">Scan</button>
-            <button data-tab="ping" class="tab px-4 py-3 text-gray-400 border-b-2 border-transparent">Ping</button>
-            <button data-tab="dns" class="tab px-4 py-3 text-gray-400 border-b-2 border-transparent">DNS Lookup</button>
-            <button data-tab="traceroute" class="tab px-4 py-3 text-gray-400 border-b-2 border-transparent">Traceroute</button>
+        <div class="flex border-b border-gray-700 overflow-x-auto">
+            <button data-tab="scan" class="tab active px-4 py-3 text-gray-400 border-b-2 border-transparent flex-shrink-0">Scan</button>
+            <button data-tab="ping" class="tab px-4 py-3 text-gray-400 border-b-2 border-transparent flex-shrink-0">Ping</button>
+            <button data-tab="dns" class="tab px-4 py-3 text-gray-400 border-b-2 border-transparent flex-shrink-0">DNS Lookup</button>
+            <button data-tab="traceroute" class="tab px-4 py-3 text-gray-400 border-b-2 border-transparent flex-shrink-0">Traceroute</button>
         </div>
 
         <!-- Tab Content -->
@@ -38,9 +56,9 @@
             <div id="scan-content" class="tab-content">
                 <h2 class="text-xl font-semibold mb-4">Nmap Scan</h2>
                 <p class="text-gray-400 mb-4">Perform a quick scan (-F) on a target IP or range.</p>
-                <div class="flex items-center mb-4">
-                    <input id="scan-target" type="text" placeholder="e.g., 192.168.1.1 or scanme.nmap.org" class="flex-grow bg-gray-900 rounded-l p-2 border border-gray-600 font-mono">
-                    <button id="scan-btn" class="bg-blue-600 text-white px-4 py-2 rounded-r hover:bg-blue-700">Scan</button>
+                <div class="flex flex-col sm:flex-row items-center mb-4 space-y-2 sm:space-y-0">
+                    <input id="scan-target" type="text" placeholder="e.g., 192.168.1.1 or scanme.nmap.org" class="w-full sm:flex-grow bg-gray-900 rounded sm:rounded-l sm:rounded-r-none p-2 border border-gray-600 font-mono">
+                    <button id="scan-btn" class="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded sm:rounded-r sm:rounded-l-none hover:bg-blue-700">Scan</button>
                 </div>
                 <pre class="command-output bg-gray-900 p-4 rounded-lg whitespace-pre-wrap max-h-96 overflow-y-auto"></pre>
             </div>
@@ -49,9 +67,9 @@
             <div id="ping-content" class="tab-content hidden">
                 <h2 class="text-xl font-semibold mb-4">Live Ping</h2>
                 <p class="text-gray-400 mb-4">Send ICMP packets to a host to test connectivity.</p>
-                <div class="flex items-center mb-4">
-                    <input id="ping-host" type="text" placeholder="e.g., 8.8.8.8 or google.com" class="flex-grow bg-gray-900 rounded-l p-2 border border-gray-600 font-mono">
-                    <button id="ping-btn" class="bg-blue-600 text-white px-4 py-2 rounded-r hover:bg-blue-700">Start Ping</button>
+                <div class="flex flex-col sm:flex-row items-center mb-4 space-y-2 sm:space-y-0">
+                    <input id="ping-host" type="text" placeholder="e.g., 8.8.8.8 or google.com" class="w-full sm:flex-grow bg-gray-900 rounded sm:rounded-l sm:rounded-r-none p-2 border border-gray-600 font-mono">
+                    <button id="ping-btn" class="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded sm:rounded-r sm:rounded-l-none hover:bg-blue-700">Start Ping</button>
                 </div>
                 <pre class="command-output bg-gray-900 p-4 rounded-lg whitespace-pre-wrap max-h-96 overflow-y-auto"></pre>
             </div>
@@ -60,9 +78,9 @@
             <div id="dns-content" class="tab-content hidden">
                  <h2 class="text-xl font-semibold mb-4">DNS Lookup</h2>
                 <p class="text-gray-400 mb-4">Perform a `dig` on a domain to check its DNS records.</p>
-                <div class="flex items-center mb-4">
-                    <input id="dns-domain" type="text" placeholder="e.g., google.com" class="flex-grow bg-gray-900 rounded-l p-2 border border-gray-600 font-mono">
-                    <button id="dns-btn" class="bg-blue-600 text-white px-4 py-2 rounded-r hover:bg-blue-700">Lookup</button>
+                <div class="flex flex-col sm:flex-row items-center mb-4 space-y-2 sm:space-y-0">
+                    <input id="dns-domain" type="text" placeholder="e.g., google.com" class="w-full sm:flex-grow bg-gray-900 rounded sm:rounded-l sm:rounded-r-none p-2 border border-gray-600 font-mono">
+                    <button id="dns-btn" class="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded sm:rounded-r sm:rounded-l-none hover:bg-blue-700">Lookup</button>
                 </div>
                 <pre class="command-output bg-gray-900 p-4 rounded-lg whitespace-pre-wrap max-h-96 overflow-y-auto"></pre>
             </div>
@@ -71,9 +89,9 @@
             <div id="traceroute-content" class="tab-content hidden">
                 <h2 class="text-xl font-semibold mb-4">Traceroute</h2>
                 <p class="text-gray-400 mb-4">Trace the path packets take to a network host.</p>
-                <div class="flex items-center mb-4">
-                    <input id="traceroute-host" type="text" placeholder="e.g., 1.1.1.1 or cloudflare.com" class="flex-grow bg-gray-900 rounded-l p-2 border border-gray-600 font-mono">
-                    <button id="traceroute-btn" class="bg-blue-600 text-white px-4 py-2 rounded-r hover:bg-blue-700">Trace</button>
+                <div class="flex flex-col sm:flex-row items-center mb-4 space-y-2 sm:space-y-0">
+                    <input id="traceroute-host" type="text" placeholder="e.g., 1.1.1.1 or cloudflare.com" class="w-full sm:flex-grow bg-gray-900 rounded sm:rounded-l sm:rounded-r-none p-2 border border-gray-600 font-mono">
+                    <button id="traceroute-btn" class="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded sm:rounded-r sm:rounded-l-none hover:bg-blue-700">Trace</button>
                 </div>
                 <pre class="command-output bg-gray-900 p-4 rounded-lg whitespace-pre-wrap max-h-96 overflow-y-auto"></pre>
             </div>

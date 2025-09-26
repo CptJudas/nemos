@@ -26,16 +26,22 @@
         .xterm .xterm-viewport {
             width: 100% !important; /* Fix for potential scrollbar issues */
         }
-        /* Custom scrollbar for clipboard */
-        #clipboard-list::-webkit-scrollbar {
-            width: 8px;
-        }
-        #clipboard-list::-webkit-scrollbar-track {
-            background: #2d3748; /* bg-gray-800 */
-        }
-        #clipboard-list::-webkit-scrollbar-thumb {
-            background: #4a5568; /* bg-gray-700 */
-            border-radius: 4px;
+        /* Custom scrollbar for desktop */
+        @media (hover: hover) and (pointer: fine) {
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+            ::-webkit-scrollbar-track {
+                background: #1f2937; /* bg-gray-800 */
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #4b5563; /* bg-gray-600 */
+                border-radius: 4px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #6b7280; /* bg-gray-500 */
+            }
         }
         .tab {
             transition: background-color 0.2s ease-in-out;
@@ -49,10 +55,10 @@
         }
     </style>
 </head>
-<body class="flex h-screen">
+<body class="flex flex-col lg:flex-row h-screen">
 
     <!-- Temp Clipboard Sidebar -->
-    <aside class="w-80 flex-shrink-0 bg-gray-800 flex flex-col p-4 border-r border-gray-700">
+    <aside id="clipboard-sidebar" class="w-full lg:w-80 h-full lg:h-auto flex-shrink-0 bg-gray-800 flex flex-col p-4 border-r border-gray-700 hidden lg:flex">
         <h2 class="text-lg font-bold text-white mb-4 flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
             Temp Clipboard
@@ -74,6 +80,7 @@
         <div id="tabs-container" class="flex-shrink-0 bg-gray-800 flex items-center">
             <!-- Tabs will be injected here -->
             <button id="add-tab-btn" class="p-2 m-1 bg-gray-700 hover:bg-gray-600 rounded text-white">+</button>
+            <button id="toggle-clipboard-btn" class="lg:hidden p-2 m-1 bg-gray-700 hover:bg-gray-600 rounded text-white">Clipboard</button>
         </div>
         <div id="terminal-container" class="flex-grow p-2">
             <!-- Terminal instances will be injected here -->
@@ -102,11 +109,23 @@
         const clipboardInput = document.getElementById('clipboard-input');
         const addClipboardBtn = document.getElementById('add-clipboard-btn');
         const clipboardList = document.getElementById('clipboard-list');
+        const clipboardSidebar = document.getElementById('clipboard-sidebar');
+        const toggleClipboardBtn = document.getElementById('toggle-clipboard-btn');
         
         // --- State ---
         let tempClipboardItems = JSON.parse(localStorage.getItem('tempClipboardItems') || '[]');
         let terminals = {}; // Store terminal instances and related data
         let activeTabId = null;
+
+        // --- Event Listener for Clipboard Toggle ---
+        toggleClipboardBtn.addEventListener('click', () => {
+            clipboardSidebar.classList.toggle('hidden');
+            // Optional: auto-hide terminal when showing clipboard on small screens
+            if (!clipboardSidebar.classList.contains('hidden') && window.innerWidth < 1024) {
+                 // This part is tricky as it would hide the main content.
+                 // For now, we just show/hide the sidebar.
+            }
+        });
 
         // Function to save clipboard items to localStorage
         function saveClipboardItems() {

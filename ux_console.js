@@ -2,7 +2,7 @@
 // This is a centralized library for creating consistent UI feedback components.
 // It attaches itself to the window.NemOS object.
 
-(function() {
+document.addEventListener('DOMContentLoaded', () => {
     // --- INITIALIZATION ---
     if (!window.NemOS) {
         window.NemOS = {};
@@ -84,6 +84,24 @@
         @keyframes modal-scale-in {
             from { opacity: 0; transform: scale(0.95); }
             to { opacity: 1; transform: scale(1); }
+        }
+        
+        /* Custom scrollbar for desktop */
+        @media (hover: hover) and (pointer: fine) {
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+            ::-webkit-scrollbar-track {
+                background: #1f2739; /* bg-gray-800 */
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #4b5563; /* bg-gray-600 */
+                border-radius: 4px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #6b7280; /* bg-gray-500 */
+            }
         }
     `;
 
@@ -193,5 +211,5 @@
             modal.close();
         });
     };
-})();
+});
 

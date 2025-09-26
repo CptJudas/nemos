@@ -11,35 +11,55 @@
         .status-running { color: #48bb78; } /* text-green-500 */
         .status-exited { color: #a0aec0; } /* text-gray-500 */
         .status-restarting { color: #63b3ed; } /* text-blue-400 */
+        
+        /* Custom scrollbar for desktop */
+        @media (hover: hover) and (pointer: fine) {
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+            ::-webkit-scrollbar-track {
+                background: #1f2937; /* bg-gray-800 */
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #4b5563; /* bg-gray-600 */
+                border-radius: 4px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #6b7280; /* bg-gray-500 */
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-200 h-screen flex flex-col p-4">
 
-    <header class="mb-4 flex justify-between items-center">
-        <h1 class="text-2xl font-bold flex items-center">
+    <header class="mb-4 flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
+        <h1 class="text-2xl font-bold flex items-center self-start sm:self-center">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
             Container Control
         </h1>
-        <button id="deploy-compose-btn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+        <button id="deploy-compose-btn" class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">
             Deploy with Docker Compose
         </button>
     </header>
 
     <main class="flex-grow overflow-y-auto">
-        <table class="w-full text-left table-auto">
-            <thead class="sticky top-0 bg-gray-800">
-                <tr>
-                    <th class="px-4 py-2 border-b border-gray-700">Name</th>
-                    <th class="px-4 py-2 border-b border-gray-700">Image</th>
-                    <th class="px-4 py-2 border-b border-gray-700">Status</th>
-                    <th class="px-4 py-2 border-b border-gray-700">Ports</th>
-                    <th class="px-4 py-2 border-b border-gray-700 text-right">Actions</th>
-                </tr>
-            </thead>
-            <tbody id="container-list">
-                <!-- Container rows will be injected here -->
-            </tbody>
-        </table>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left table-auto">
+                <thead class="sticky top-0 bg-gray-800">
+                    <tr>
+                        <th class="px-4 py-2 border-b border-gray-700">Name</th>
+                        <th class="px-4 py-2 border-b border-gray-700 hidden md:table-cell">Image</th>
+                        <th class="px-4 py-2 border-b border-gray-700">Status</th>
+                        <th class="px-4 py-2 border-b border-gray-700 hidden md:table-cell">Ports</th>
+                        <th class="px-4 py-2 border-b border-gray-700 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="container-list">
+                    <!-- Container rows will be injected here -->
+                </tbody>
+            </table>
+        </div>
     </main>
 
     <!-- Docker Compose Modal -->
@@ -212,11 +232,11 @@
             return `
                 <tr class="border-b border-gray-800" data-id="${container.Id}">
                     <td class="px-4 py-3">${container.Name}</td>
-                    <td class="px-4 py-3 text-sm text-gray-400 truncate max-w-xs">${container.Image}</td>
+                    <td class="px-4 py-3 text-sm text-gray-400 truncate max-w-xs hidden md:table-cell">${container.Image}</td>
                     <td class="px-4 py-3">
                         <span class="font-semibold ${statusClass}">${container.Status}</span>
                     </td>
-                    <td class="px-4 py-3 text-sm font-mono">${ports}</td>
+                    <td class="px-4 py-3 text-sm font-mono hidden md:table-cell">${ports}</td>
                     <td class="px-4 py-3 text-right">
                         <div class="flex items-center justify-end space-x-3 text-gray-400">
                             <button class="start-btn hover:text-white ${isRunning ? 'hidden' : ''}" title="Start">${startIcon}</button>

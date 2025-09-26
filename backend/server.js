@@ -269,6 +269,7 @@ function handleApiRoutes(req, res, method, parts) {
                 case 'docker':
                     if (rest[0] === 'containers' && rest[2] === 'action' && method === 'POST') await handleDockerAction(rest[1], payload, res);
                     else if (rest[0] === 'running-containers' && method === 'GET') await handleGetRunningContainers(res);
+                    else if (rest[0] === 'stats-summary' && method === 'GET') await handleGetDockerStatsSummary(res);
                     else if (rest[0] === 'compose' && rest[1] === 'up' && method === 'POST') await handleDockerComposeUp(payload, res);
                     else sendResponse(res, 404, { error: 'Docker route not found' });
                     break;
@@ -400,7 +401,7 @@ async function handleClipboardRoutes(req, res, method, rest, payload) {
 async function handleScriptDeckRoutes(req, res, method, rest, payload) {
     const scriptId = rest[0] === 'scripts' ? rest[1] : null;
 
-    if (method === 'GET' && !scriptId) {
+    if (method === 'GET' && rest[0] === 'scripts' && !scriptId) {
         scriptDeckDb.all('SELECT * FROM scripts ORDER BY orderIndex ASC, createdAt DESC', (err, rows) => {
             if (err) return sendResponse(res, 500, { error: err.message });
             rows.forEach(r => {
@@ -409,7 +410,7 @@ async function handleScriptDeckRoutes(req, res, method, rest, payload) {
             });
             sendResponse(res, 200, rows);
         });
-    } else if (method === 'POST' && !scriptId) {
+    } else if (method === 'POST' && rest[0] === 'scripts' && !scriptId) {
         const { id, name, description, scriptType, scriptContent, isExecutable, createdAt, tags } = payload;
         if (!id || !name || !scriptType || !createdAt) return sendResponse(res, 400, { error: 'Missing required fields.' });
         const tagsJson = JSON.stringify(tags || []);
@@ -596,6 +597,19 @@ async function handleDockerComposeUp({ yaml }, res) {
         if (fs.existsSync(tempDir)) {
             fs.rmSync(tempDir, { recursive: true, force: true });
         }
+    }
+}
+
+async function handleGetDockerStatsSummary(res) {
+    try {
+        const containers = await docker.listContainers({ all: true });
+        const summary = {
+            running: containers.filter(c => c.State === 'running').length,
+            stopped: containers.filter(c => c.State !== 'running').length,
+        };
+        sendResponse(res, 200, summary);
+    } catch (error) {
+        sendResponse(res, 500, { error: `Failed to get container stats: ${error.message}` });
     }
 }
 

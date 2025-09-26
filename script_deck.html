@@ -6,6 +6,28 @@
     <title>NemOS - Script Deck</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <style>
+        @import url('https://rsms.me/inter/inter.css');
+        body { font-family: 'Inter', sans-serif; }
+        
+        /* Custom scrollbar for desktop */
+        @media (hover: hover) and (pointer: fine) {
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+            ::-webkit-scrollbar-track {
+                background: #1f2937; /* bg-gray-800 */
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #4b5563; /* bg-gray-600 */
+                border-radius: 4px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #6b7280; /* bg-gray-500 */
+            }
+        }
+    </style>
     <script>
         // --- CONFIG & INITIALIZATION ---
         const API_BASE_URL = '/api/script-deck';
@@ -14,10 +36,12 @@
         let scriptGrid;
         let addScriptBtn;
         let searchBar;
+        let reorderBtn;
         
         // --- STATE ---
         let scripts = [];
         let currentEditingScriptId = null;
+        let sortableInstance = null;
 
         // --- INITIAL LOAD ---
         document.addEventListener('DOMContentLoaded', () => {
@@ -25,18 +49,21 @@
             scriptGrid = document.getElementById('script-grid');
             addScriptBtn = document.getElementById('add-script-btn');
             searchBar = document.getElementById('search-bar');
+            reorderBtn = document.getElementById('reorder-btn');
             
             // Attach listeners
             addScriptBtn.addEventListener('click', () => showScriptModal(null));
             searchBar.addEventListener('input', render);
+            reorderBtn.addEventListener('click', toggleReordering);
 
             // Fetch initial data
             fetchScripts();
 
             // Initialize SortableJS for drag-and-drop
-            new Sortable(scriptGrid, {
+            sortableInstance = new Sortable(scriptGrid, {
                 animation: 150,
                 ghostClass: 'bg-gray-700',
+                disabled: true, // Disabled by default
                 onEnd: function (evt) {
                     const orderedIds = Array.from(scriptGrid.children).map(child => child.dataset.id);
                     saveOrder(orderedIds);
@@ -44,9 +71,28 @@
             });
         });
 
+        function toggleReordering() {
+            const isDisabled = sortableInstance.option('disabled');
+            sortableInstance.option('disabled', !isDisabled);
+
+            if (isDisabled) {
+                reorderBtn.textContent = 'Done';
+                reorderBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+                reorderBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+                scriptGrid.classList.add('reordering-active');
+                NemOS.feedback.showToast('Reordering enabled.', 'info');
+            } else {
+                reorderBtn.textContent = 'Reorder';
+                reorderBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                reorderBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
+                scriptGrid.classList.remove('reordering-active');
+                NemOS.feedback.showToast('Reordering disabled.', 'info');
+            }
+        }
+
         async function saveOrder(orderedIds) {
             try {
-                await apiRequest('/scripts/reorder', 'POST', { orderedIds });
+                await apiRequest('/reorder', 'POST', { orderedIds });
                 NemOS.feedback.showToast('Order saved!', 'success');
             } catch (error) {
                 NemOS.feedback.showToast('Failed to save order.', 'error');
@@ -320,14 +366,15 @@
     </script>
 </head>
 <body class="bg-gray-900 text-gray-200 h-screen flex flex-col p-4">
-    <header class="mb-4 flex justify-between items-center">
-        <h1 class="text-2xl font-bold flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+    <header class="mb-4 flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
+        <h1 class="text-2xl font-bold flex items-center self-start sm:self-center">
+            <svg xmlns="http://www.w.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
             Script Deck
         </h1>
-        <div class="flex items-center space-x-2">
-            <input id="search-bar" type="text" placeholder="Search scripts..." class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-            <button id="add-script-btn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Add New Script</button>
+        <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
+            <input id="search-bar" type="text" placeholder="Search scripts..." class="w-full sm:w-auto bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+            <button id="add-script-btn" class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Add New Script</button>
+            <button id="reorder-btn" class="w-full sm:w-auto px-3 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors text-sm flex-shrink-0" title="Toggle drag-and-drop reordering">Reorder</button>
         </div>
     </header>
     <main id="script-grid" class="flex-grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto pr-2">

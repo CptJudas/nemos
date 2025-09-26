@@ -20,52 +20,69 @@
             width: 100%;
             height: 100%;
         }
+        /* Custom scrollbar for desktop */
+        @media (hover: hover) and (pointer: fine) {
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+            ::-webkit-scrollbar-track {
+                background: #1f2937; /* bg-gray-800 */
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #4b5563; /* bg-gray-600 */
+                border-radius: 4px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #6b7280; /* bg-gray-500 */
+            }
+        }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-200 h-screen flex overflow-hidden">
+<body class="bg-gray-900 text-gray-200 h-screen flex flex-col md:flex-row overflow-hidden">
 
     <!-- Sidebar Navigation -->
-    <nav class="bg-gray-800 p-2 flex flex-col items-center space-y-2 border-r border-gray-700">
+    <nav class="bg-gray-800 p-2 flex flex-row md:flex-col items-center justify-start md:justify-start space-x-2 md:space-x-0 md:space-y-2 border-b md:border-b-0 md:border-r border-gray-700 overflow-x-auto">
         <!-- NemOS Logo -->
-        <a href="#" class="block mb-4 p-2">
+        <a href="dashboard.html" class="sidebar-icon hidden md:block mb-4 p-2" data-module="dashboard" title="Dashboard">
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
         </a>
 
         <!-- Module Icons -->
-        <a href="clipboard_hub.html" class="sidebar-icon p-3 rounded-lg" data-module="clipboard_hub" title="Clipboard Hub">
+        <a href="clipboard_hub.html" class="sidebar-icon p-3 rounded-lg flex-shrink-0" data-module="clipboard_hub" title="Clipboard Hub">
              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
         </a>
-        <a href="script_deck.html" class="sidebar-icon p-3 rounded-lg" data-module="script_deck" title="Script Deck">
+        <a href="script_deck.html" class="sidebar-icon p-3 rounded-lg flex-shrink-0" data-module="script_deck" title="Script Deck">
              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
         </a>
-        <a href="utilities.html" class="sidebar-icon p-3 rounded-lg" data-module="utilities" title="Utilities">
+        <a href="utilities.html" class="sidebar-icon p-3 rounded-lg flex-shrink-0" data-module="utilities" title="Utilities">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-4.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.44.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2.73l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.44.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h4.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.44-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2.73l.15.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.44-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
         </a>
-        <a href="interactive_shell.html" class="sidebar-icon p-3 rounded-lg" data-module="interactive_shell" title="Interactive Shell">
+        <a href="interactive_shell.html" class="sidebar-icon p-3 rounded-lg flex-shrink-0" data-module="interactive_shell" title="Interactive Shell">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
         </a>
-        <a href="markdown_vault.html" class="sidebar-icon p-3 rounded-lg" data-module="markdown_vault" title="Markdown Vault">
+        <a href="markdown_vault.html" class="sidebar-icon p-3 rounded-lg flex-shrink-0" data-module="markdown_vault" title="Markdown Vault">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
         </a>
-        <a href="system_monitor.html" class="sidebar-icon p-3 rounded-lg" data-module="system_monitor" title="System Monitor">
+        <a href="system_monitor.html" class="sidebar-icon p-3 rounded-lg flex-shrink-0" data-module="system_monitor" title="System Monitor">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
         </a>
-        <a href="container_control.html" class="sidebar-icon p-3 rounded-lg" data-module="container_control" title="Container Control">
+        <a href="container_control.html" class="sidebar-icon p-3 rounded-lg flex-shrink-0" data-module="container_control" title="Container Control">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
         </a>
-        <a href="network_toolkit.html" class="sidebar-icon p-3 rounded-lg" data-module="network_toolkit" title="Network Toolkit">
+        <a href="network_toolkit.html" class="sidebar-icon p-3 rounded-lg flex-shrink-0" data-module="network_toolkit" title="Network Toolkit">
              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
         </a>
-         <a href="asset_library.html" class="sidebar-icon p-3 rounded-lg" data-module="asset_library" title="Asset Library">
+         <a href="asset_library.html" class="sidebar-icon p-3 rounded-lg flex-shrink-0" data-module="asset_library" title="Asset Library">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
         </a>
-        <a href="proxy_configurator.html" class="sidebar-icon p-3 rounded-lg" data-module="proxy_configurator" title="Reverse Proxy Configurator">
+        <a href="proxy_configurator.html" class="sidebar-icon p-3 rounded-lg flex-shrink-0" data-module="proxy_configurator" title="Reverse Proxy Configurator">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 7 15 3 3 3 3 17 8 17"></polyline><rect x="12" y="7" width="9" height="9"></rect><line x1="15" y1="12" x2="18" y2="12"></line></svg>
         </a>
-        <a href="ai_studio.html" class="sidebar-icon p-3 rounded-lg" data-module="ai_studio" title="AI Prompt Studio">
+        <a href="ai_studio.html" class="sidebar-icon p-3 rounded-lg flex-shrink-0" data-module="ai_studio" title="AI Prompt Studio">
              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"></path><rect x="4" y="4" width="16" height="16"></rect><path d="M4 16h4"></path><path d="M12 12h4"></path></svg>
         </a>
-        <a href="#" class="sidebar-icon p-3 rounded-lg" data-module="kasm_desktop" title="Kasm Desktop" id="kasm-desktop-link">
+        <a href="#" class="sidebar-icon p-3 rounded-lg flex-shrink-0" data-module="kasm_desktop" title="Kasm Desktop" id="kasm-desktop-link">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
         </a>
     </nav>
@@ -110,7 +127,7 @@
         // --- Handle Initial Load ---
         function loadInitialModule() {
             const hash = window.location.hash.substring(1);
-            const initialIcon = document.querySelector(`.sidebar-icon[data-module="${hash}"]`) || document.querySelector('.sidebar-icon'); // Default to first icon
+            const initialIcon = document.querySelector(`.sidebar-icon[data-module="${hash}"]`) || document.querySelector('[data-module="dashboard"]'); // Default to dashboard
             
             if (initialIcon) {
                 setActiveModule(initialIcon.dataset.module, initialIcon.href);

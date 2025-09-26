@@ -9,6 +9,24 @@
     <style>
         @import url('https://rsms.me/inter/inter.css');
         body { font-family: 'Inter', sans-serif; }
+        
+        /* Custom scrollbar for desktop */
+        @media (hover: hover) and (pointer: fine) {
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+            ::-webkit-scrollbar-track {
+                background: #1f2937; /* bg-gray-800 */
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #4b5563; /* bg-gray-600 */
+                border-radius: 4px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #6b7280; /* bg-gray-500 */
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-200 p-4 h-screen flex flex-col">
@@ -17,22 +35,25 @@
         <p id="user-id-display" class="text-xs text-gray-500 font-mono">Connecting...</p>
     </header>
 
-    <div class="flex items-center space-x-2 mb-4">
+    <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 mb-4">
         <input id="new-item-content" type="text" placeholder="Add new item to history..." class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-        <button id="add-item-btn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">Add</button>
+        <button id="add-item-btn" class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors">Add</button>
     </div>
 
-    <div class="flex items-center space-x-4 mb-4">
-        <div class="relative flex-grow">
+    <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mb-4">
+        <div class="relative flex-grow w-full">
             <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             <input id="search-bar" type="text" placeholder="Search history..." class="w-full bg-gray-800 border border-gray-700 rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
         </div>
-         <button id="clear-untagged-btn" class="px-3 py-2 bg-red-800 text-white font-semibold rounded-lg hover:bg-red-900 transition-colors text-sm flex-shrink-0" title="Delete all items that are not tagged and not pinned">
+         <button id="clear-untagged-btn" class="w-full sm:w-auto px-3 py-2 bg-red-800 text-white font-semibold rounded-lg hover:bg-red-900 transition-colors text-sm flex-shrink-0" title="Delete all items that are not tagged and not pinned">
             Clear Untagged
+        </button>
+        <button id="reorder-btn" class="w-full sm:w-auto px-3 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors text-sm flex-shrink-0" title="Toggle drag-and-drop reordering">
+            Reorder
         </button>
     </div>
     
-    <div id="tabs-container" class="flex items-center space-x-2 mb-4 overflow-x-auto pb-2">
+    <div id="tabs-container" class="flex flex-wrap gap-2 mb-4">
         <!-- Tabs will be injected here -->
     </div>
 
@@ -74,6 +95,7 @@
         const searchBar = document.getElementById('search-bar');
         const tabsContainer = document.getElementById('tabs-container');
         const clearUntaggedBtn = document.getElementById('clear-untagged-btn');
+        const reorderBtn = document.getElementById('reorder-btn');
         // Tag Modal
         const tagModal = document.getElementById('tag-modal');
         const tagModalTitle = document.getElementById('tag-modal-title');
@@ -88,6 +110,7 @@
         let allTags = new Set();
         let filterText = '';
         let activeTab = 'All';
+        let sortableInstance = null;
 
         // --- INITIAL LOAD ---
         document.addEventListener('DOMContentLoaded', () => {
@@ -95,14 +118,34 @@
             fetchItems();
             
             // Initialize SortableJS for drag-and-drop
-            new Sortable(historyList, {
+            sortableInstance = new Sortable(historyList, {
                 animation: 150,
                 ghostClass: 'bg-gray-700',
+                disabled: true, // Disabled by default
                 onEnd: function (evt) {
                     const orderedIds = Array.from(historyList.children).map(child => child.dataset.id);
                     saveOrder(orderedIds);
                 }
             });
+        });
+        
+        reorderBtn.addEventListener('click', () => {
+            const isDisabled = sortableInstance.option('disabled');
+            sortableInstance.option('disabled', !isDisabled);
+
+            if (isDisabled) {
+                reorderBtn.textContent = 'Done';
+                reorderBtn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+                reorderBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+                historyList.classList.add('reordering-active'); // For potential styling
+                 NemOS.feedback.showToast('Reordering enabled.', 'info');
+            } else {
+                reorderBtn.textContent = 'Reorder';
+                reorderBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                reorderBtn.classList.add('bg-gray-600', 'hover:bg-gray-700');
+                historyList.classList.remove('reordering-active');
+                 NemOS.feedback.showToast('Reordering disabled.', 'info');
+            }
         });
         
         async function saveOrder(orderedIds) {
@@ -229,7 +272,7 @@
         
         function createItemCard(item) {
             const card = document.createElement('div');
-            card.className = `item-card bg-gray-800 p-3 rounded-lg flex items-center justify-between gap-4 border-2 ${item.isPinned ? 'border-blue-500' : 'border-transparent'}`;
+            card.className = `item-card bg-gray-800 p-3 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-2 ${item.isPinned ? 'border-blue-500' : 'border-transparent'}`;
             card.dataset.id = item.id; // Add item ID to the element
 
             const contentEl = document.createElement('div');
@@ -243,7 +286,7 @@
             tagsEl.className = 'flex flex-wrap gap-1 mt-2';
             item.tags.forEach(tag => {
                 const tagSpan = document.createElement('span');
-                tagSpan.className = 'text-xs bg-gray-700 px-2 py-0.5 rounded-full';
+                tagSpan.className = 'text-xs bg-gray-700 px-2 py-1 rounded-full';
                 tagSpan.textContent = tag;
                 tagsEl.appendChild(tagSpan);
             });
@@ -254,7 +297,7 @@
             card.appendChild(contentEl);
 
             const actionsEl = document.createElement('div');
-            actionsEl.className = 'flex items-center space-x-2 flex-shrink-0';
+            actionsEl.className = 'flex items-center space-x-2 flex-shrink-0 self-end mt-2 sm:self-auto sm:mt-0';
             
             const pinIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="${item.isPinned ? 'currentColor' : 'none'}" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4.5l-4 4l-4 1.5l-1.5 1.5l7 7l1.5 -1.5l1.5 -4l4 -4" /><path d="M9 15l-4.5 4.5" /><path d="M14.5 4l5.5 5.5" /></svg>`;
             const tagIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>`;

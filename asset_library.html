@@ -18,24 +18,42 @@
             transform: translateY(-4px);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
+        
+        /* Custom scrollbar for desktop */
+        @media (hover: hover) and (pointer: fine) {
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+            ::-webkit-scrollbar-track {
+                background: #1f2937; /* bg-gray-800 */
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #4b5563; /* bg-gray-600 */
+                border-radius: 4px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #6b7280; /* bg-gray-500 */
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-200 h-screen flex flex-col p-4">
 
-    <header class="mb-4 flex justify-between items-center">
-        <h1 class="text-2xl font-bold flex items-center">
+    <header class="mb-4 flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
+        <h1 class="text-2xl font-bold flex items-center self-start sm:self-center">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
             Asset Library
         </h1>
-        <div class="flex items-center space-x-2">
-            <input id="search-bar" type="text" placeholder="Search by name or tag..." class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
-            <button id="upload-btn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Upload</button>
+        <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
+            <input id="search-bar" type="text" placeholder="Search by name or tag..." class="w-full sm:w-auto bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+            <button id="upload-btn" class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Upload</button>
             <input type="file" id="file-input" multiple class="hidden">
         </div>
     </header>
 
     <main id="main-content" class="flex-grow flex flex-col border border-gray-700 rounded-lg overflow-hidden">
-        <div id="asset-grid" class="flex-grow p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 overflow-y-auto">
+        <div id="asset-grid" class="flex-grow p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2 sm:gap-4 overflow-y-auto">
             <!-- Asset cards will be injected here -->
         </div>
         <div id="drop-zone" class="hidden absolute inset-0 bg-gray-900 bg-opacity-75 border-4 border-dashed border-blue-500 rounded-lg items-center justify-center text-2xl font-bold text-white">

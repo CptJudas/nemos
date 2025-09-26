@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NemOS - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://rsms.me/inter/inter.css');
+        body { font-family: 'Inter', sans-serif; }
+        .widget {
+            background-color: #1f2937; /* bg-gray-800 */
+            border: 1px solid #374151; /* border-gray-700 */
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+        .widget-title {
+            font-weight: 600;
+            color: #9ca3af; /* text-gray-400 */
+            margin-bottom: 1rem;
+        }
+        .widget-content {
+            flex-grow: 1;
+        }
+        /* Custom scrollbar for desktop */
+        @media (hover: hover) and (pointer: fine) {
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+            ::-webkit-scrollbar-track {
+                background: #1f2937; /* bg-gray-800 */
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #4b5563; /* bg-gray-600 */
+                border-radius: 4px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #6b7280; /* bg-gray-500 */
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 h-screen flex flex-col p-4">
+
+    <header class="mb-4">
+        <h1 class="text-2xl font-bold flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500 mr-3"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+            Server Dashboard
+        </h1>
+    </header>
+
+    <main class="flex-grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- System Vitals -->
+        <div class="widget">
+            <h2 class="widget-title">System Vitals</h2>
+            <div class="widget-content grid grid-cols-2 gap-4 text-center">
+                <div>
+                    <p class="text-4xl font-bold" id="cpu-load">--%</p>
+                    <p class="text-gray-400">CPU Load</p>
+                </div>
+                <div>
+                    <p class="text-4xl font-bold" id="mem-percent">--%</p>
+                    <p class="text-gray-400">Memory</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Container Status -->
+        <div class="widget">
+            <h2 class="widget-title">Container Status</h2>
+            <div class="widget-content flex items-center justify-center text-center" id="container-status">
+                <p class="text-gray-500">Loading...</p>
+            </div>
+        </div>
+
+        <!-- Disk Usage -->
+        <div class="widget">
+            <h2 class="widget-title">Disk Usage</h2>
+            <div class="widget-content space-y-3" id="disk-list">
+                 <p class="text-gray-500">Loading...</p>
+            </div>
+        </div>
+
+        <!-- Quick Scripts -->
+        <div class="widget md:col-span-2">
+            <h2 class="widget-title">Quick Scripts</h2>
+            <div class="widget-content grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2" id="script-list">
+                 <p class="text-gray-500 col-span-full">Loading...</p>
+            </div>
+        </div>
+
+        <!-- Recent Clipboard Items -->
+        <div class="widget lg:col-span-3">
+            <h2 class="widget-title">Recent Clipboard Items</h2>
+            <div class="widget-content space-y-2" id="clipboard-list">
+                 <p class="text-gray-500">Loading...</p>
+            </div>
+        </div>
+    </main>
+
+    <script src="ux_console.js"></script>
+    <script>
+        const systemApi = `ws://${window.location.hostname}:3000/api/system/stats`;
+        const dockerApi = `http://${window.location.hostname}:3000/api/docker`;
+        const scriptApi = `http://${window.location.hostname}:3000/api/script-deck`;
+        const clipboardApi = `http://${window.location.hostname}:3000/api/clipboard`;
+
+        // --- WebSocket for Live Vitals ---
+        function connectWebSocket() {
+            const ws = new WebSocket(systemApi);
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                // CPU
+                document.getElementById('cpu-load').textContent = `${data.cpu.currentLoad.toFixed(1)}%`;
+                // Memory
+                const memPercent = ((data.mem.active / data.mem.total) * 100).toFixed(0);
+                document.getElementById('mem-percent').textContent = `${memPercent}%`;
+                // Disks
+                const diskListEl = document.getElementById('disk-list');
+                diskListEl.innerHTML = data.fsSize.map(disk => {
+                    const barColor = disk.use > 85 ? 'bg-red-500' : 'bg-blue-500';
+                    return `
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="font-mono">${disk.fs}</span>
+                                <span>${disk.use.toFixed(0)}%</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-2"><div class="${barColor} h-2 rounded-full" style="width: ${disk.use}%"></div></div>
+                        </div>
+                    `;
+                }).join('');
+            };
+            ws.onerror = () => NemOS.feedback.showToast('System stats connection lost.', 'error');
+            ws.onclose = () => setTimeout(connectWebSocket, 3000);
+        }
+
+        // --- Fetch Functions ---
+        async function fetchContainerStatus() {
+            try {
+                const response = await fetch(`${dockerApi}/stats-summary`);
+                const data = await response.json();
+                const statusEl = document.getElementById('container-status');
+                statusEl.innerHTML = `
+                    <div class="text-center">
+                        <p class="text-4xl font-bold">${data.running}</p>
+                        <p class="text-gray-400">Running</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-4xl font-bold">${data.stopped}</p>
+                        <p class="text-gray-400">Stopped</p>
+                    </div>
+                `;
+            } catch (e) {
+                document.getElementById('container-status').innerHTML = '<p class="text-red-500">Could not load container data.</p>';
+            }
+        }
+
+        async function fetchScripts() {
+            try {
+                const response = await fetch(`${scriptApi}/scripts`);
+                const scripts = await response.json();
+                const scriptListEl = document.getElementById('script-list');
+                scriptListEl.innerHTML = scripts.filter(s => s.isExecutable).slice(0, 4).map(script => `
+                    <button data-id="${script.id}" class="run-script-btn bg-gray-700 hover:bg-blue-600 p-2 rounded text-left">
+                        <p class="font-semibold truncate">${script.name}</p>
+                        <p class="text-xs text-gray-400 truncate">${script.description}</p>
+                    </button>
+                `).join('') || '<p class="text-gray-500 col-span-full">No executable scripts found.</p>';
+                
+                document.querySelectorAll('.run-script-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const scriptId = e.currentTarget.dataset.id;
+                        const script = scripts.find(s => s.id === scriptId);
+                        NemOS.feedback.showToast(`Running '${script.name}'...`, 'info');
+                        try {
+                            const res = await fetch(`${scriptApi}/run-script`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ scriptType: script.scriptType, scriptContent: script.scriptContent })
+                            });
+                            const result = await res.json();
+                            const title = result.success ? `${script.name}: Success` : `${script.name}: Failed`;
+                            const content = `<pre class="bg-gray-900 text-sm font-mono p-4 rounded whitespace-pre-wrap max-h-[60vh] overflow-auto">${result.output}</pre>`;
+                            NemOS.feedback.showModal(title, content, { isRawContent: true });
+                        } catch (err) {
+                            NemOS.feedback.showToast(`Failed to run '${script.name}'.`, 'error');
+                        }
+                    });
+                });
+
+            } catch (e) {
+                 document.getElementById('script-list').innerHTML = '<p class="text-red-500 col-span-full">Could not load scripts.</p>';
+            }
+        }
+
+        async function fetchClipboard() {
+            try {
+                const response = await fetch(`${clipboardApi}/items`);
+                const items = await response.json();
+                const clipboardListEl = document.getElementById('clipboard-list');
+                clipboardListEl.innerHTML = items.slice(0, 5).map(item => `
+                    <div class="bg-gray-700 p-2 rounded flex justify-between items-center">
+                        <pre class="text-sm font-mono truncate">${item.content}</pre>
+                        <button class="copy-btn p-1 hover:bg-gray-600 rounded" data-content="${item.content.replace(/"/g, '&quot;')}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        </button>
+                    </div>
+                `).join('') || '<p class="text-gray-500">No recent items.</p>';
+
+                document.querySelectorAll('.copy-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        navigator.clipboard.writeText(e.currentTarget.dataset.content);
+                        NemOS.feedback.showToast('Copied to clipboard!', 'success');
+                    });
+                });
+            } catch (e) {
+                document.getElementById('clipboard-list').innerHTML = '<p class="text-red-500">Could not load clipboard items.</p>';
+            }
+        }
+
+        // --- Initial Load ---
+        connectWebSocket();
+        fetchContainerStatus();
+        fetchScripts();
+        fetchClipboard();
+    </script>
+</body>
+</html>
