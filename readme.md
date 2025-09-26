@@ -55,7 +55,7 @@ Clone the repository:
    1 cd nemos
    2 ./install.sh
 
-  This runs the script and installs all the necessary Node.js packages for the backend.
+  This runs the script and installs all the necessary Node.js packages for the backend, and sets up Nginx as a reverse proxy.
 
   Step 3: Run the Application
 
@@ -68,7 +68,7 @@ Clone the repository:
   You can check the status and logs of the server at any time with the command: `pm2 status`
 
 **Access NemOS:**
-Once the containers are running, you can access the NemOS dashboard by navigating to http://your-server-ip:port in your web browser.
+Once the installation is complete and Nginx is running, you can access the NemOS dashboard by navigating to http://your-server-ip in your web browser. Nginx is configured to proxy requests to the backend server.
 
 ### Step 4: Configure Autostart (Optional)
 
