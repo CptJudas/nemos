@@ -70,14 +70,14 @@ Clone the repository:
 **Access NemOS:**
 Once the containers are running, you can access the NemOS dashboard by navigating to http://your-server-ip:port in your web browser.
 
-### Step 4: Final Configuration (One-Time Setup)
+### Step 4: Configure Autostart (Optional)
 
-The `install.sh` script uses a process manager called `pm2` to ensure the backend server runs as a persistent service. To make the server start automatically when the system boots, you need to run one final command.
+If you want the NemOS server to start automatically on system boot, you can use the provided `autostart.sh` script.
 
-After the `install.sh` script finishes, it will print a command to your screen. **You must copy this command and run it.** It will look something like this:
+To enable autostart, run the following command:
 
 ```bash
-sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u your_username --hp /home/your_username
+./autostart.sh
 ```
 
-Once you run that command, the setup is complete. The NemOS server will now start automatically every time you reboot your machine.
+This script will configure the necessary system services to ensure the backend server is always running.

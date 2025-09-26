@@ -11,7 +11,7 @@ npm install pm2 -g
 echo ""
 echo "--- Starting the NemOS backend server with PM2 ---"
 # The --name flag gives our process an easy-to-remember name
-pm2 start backend/server.js --name nemos-backend
+pm2 start backend/server.js --name nemos-app
 
 echo ""
 echo "--- Configuring PM2 to start on server boot ---"
