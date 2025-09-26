@@ -36,7 +36,7 @@ Database: SQLite for primary data storage, with optional Redis for caching.
 
 
 ⚙️ **Getting Started on Ubuntu**
-These instructions assume you have git, docker, and docker-compose installed on your Ubuntu server.
+These instructions assume you have git, npm, docker, and docker-compose installed on your Ubuntu server.
 
 Clone the repository:
 

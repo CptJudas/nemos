@@ -1,6 +1,16 @@
 #!/bin/bash
 # Installation script for NemOS
 
+echo "--- Checking for npm ---"
+if ! command -v npm &> /dev/null
+then
+    echo "npm could not be found, installing..."
+    sudo apt-get update
+    sudo apt-get install npm -y
+else
+    echo "npm is already installed."
+fi
+
 echo "--- Installing backend dependencies ---"
 (cd backend && npm install)
 

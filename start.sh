@@ -24,6 +24,9 @@ printenv
 echo "---"
 
 cd backend
+echo "Installing backend dependencies..."
+npm install
+echo "Starting server with PM2..."
 pm2 start server.js --name nemos-app
 pm2 save
 echo "Done."
