@@ -16,17 +16,7 @@ echo "--- Installing backend dependencies ---"
 
 echo ""
 echo "--- Installing PM2 (a process manager for Node.js) ---"
-npm install pm2 -g
-
-echo ""
-echo "--- Starting the NemOS backend server with PM2 ---"
-# The --name flag gives our process an easy-to-remember name
-pm2 start backend/server.js --name nemos-app
-
-echo ""
-echo "--- Configuring PM2 to start on server boot ---"
-# This generates a command that you need to run
-pm2 startup
+sudo npm install pm2 -g
 
 echo ""
 echo "--- Installing Nginx ---"
@@ -62,11 +52,32 @@ fi
 sudo nginx -t && sudo systemctl restart nginx
 
 echo ""
+echo "--- Starting the NemOS backend server with PM2 ---"
+# The --name flag gives our process an easy-to-remember name
+pm2 start backend/server.js --name nemos-app
+
+echo "--- Waiting for server to start ---"
+sleep 5
+
+# Check if the server is running
+if curl -s http://localhost:3000 > /dev/null; then
+    echo "--- NemOS backend server started successfully! ---"
+else
+    echo "--- ERROR: NemOS backend server failed to start. ---"
+    echo "Please check the logs with 'pm2 logs nemos-app'"
+fi
+
+echo ""
+echo "--- Configuring PM2 to start on server boot ---"
+# This generates a command that you need to run
+pm2 startup
+
+echo ""
 echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 echo "!!! ACTION REQUIRED !!!"
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!
 echo "To make the server start automatically on boot, you must run the command that was just printed above this message."
-echo "It will look something like: sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u <your_username> --hp <your_home_directory>"
+echo "It will look something like: sudo env PATH=\$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u <your_username> --hp <your_home_directory>"
 echo "Please copy that command, paste it into your terminal, and run it now."
 echo ""
 echo "--- Installation complete ---"
