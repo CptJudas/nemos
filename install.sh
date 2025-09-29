@@ -13,7 +13,7 @@ fi
 
 echo "--- Installing build dependencies ---"
 sudo apt-get update
-sudo apt-get install -y build-essential python3-distutils
+sudo apt-get install -y build-essential python3-distutils python3-setuptools
 
 echo "--- Installing backend dependencies ---"
 (cd backend && npm install)
