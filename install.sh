@@ -13,11 +13,11 @@ fi
 
 echo "--- Installing build dependencies ---"
 sudo apt-get update
-sudo apt-get install -y build-essential python3-pip
+sudo apt-get install -y build-essential python3-pip g++ make
 sudo python3 -m pip install setuptools
 
 echo "--- Installing backend dependencies ---"
-(cd backend && npm install)
+(cd backend && npm cache clean --force && npm install --python=python3)
 
 echo ""
 echo "--- Installing PM2 (a process manager for Node.js) ---"
