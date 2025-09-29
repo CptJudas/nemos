@@ -267,10 +267,11 @@ function handleApiRoutes(req, res, method, parts) {
                      else sendResponse(res, 404, { error: 'Vault route not found' });
                     break;
                 case 'docker':
-                    if (rest[0] === 'containers' && rest[2] === 'action' && method === 'POST') await handleDockerAction(rest[1], payload, res);
+                    if (rest[0] === 'run' && method === 'POST') await handleDockerRun(payload, res);
+                    else if (rest[0] === 'containers' && rest.length > 2 && rest[2] === 'action' && method === 'POST') await handleDockerAction(rest[1], payload, res);
                     else if (rest[0] === 'running-containers' && method === 'GET') await handleGetRunningContainers(res);
                     else if (rest[0] === 'stats-summary' && method === 'GET') await handleGetDockerStatsSummary(res);
-                    else if (rest[0] === 'compose' && rest[1] === 'up' && method === 'POST') await handleDockerComposeUp(payload, res);
+                    else if (rest[0] === 'compose' && rest.length > 1 && rest[1] === 'up' && method === 'POST') await handleDockerComposeUp(payload, res);
                     else sendResponse(res, 404, { error: 'Docker route not found' });
                     break;
                  case 'network':
@@ -598,6 +599,20 @@ async function handleDockerComposeUp({ yaml }, res) {
             fs.rmSync(tempDir, { recursive: true, force: true });
         }
     }
+}
+
+async function handleDockerRun({ command }, res) {
+    if (!command || !command.trim().startsWith('docker run')) {
+        return sendResponse(res, 400, { error: 'Command must be a valid "docker run" command.' });
+    }
+
+    exec(command, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`exec error: ${error}`);
+            return sendResponse(res, 500, { error: `Command failed: ${stderr || error.message}` });
+        }
+        sendResponse(res, 200, { message: 'Command executed successfully.', output: stdout || stderr });
+    });
 }
 
 async function handleGetDockerStatsSummary(res) {

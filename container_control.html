@@ -60,6 +60,24 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Docker Run Section -->
+        <div class="mt-8 p-6 bg-gray-800 rounded-lg shadow-lg">
+            <h3 class="text-xl font-bold text-white mb-4">Docker Run Command</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <textarea id="docker-run-command" class="w-full h-32 bg-gray-900 text-gray-200 rounded p-3 border border-gray-600 focus:ring-2 focus:ring-blue-500 text-sm font-mono" placeholder="e.g., docker run -d -p 8080:80 nginx"></textarea>
+                    <button id="execute-run-btn" class="mt-2 w-full px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors">
+                        Execute Command
+                    </button>
+                </div>
+                <div>
+                    <div class="w-full h-40 bg-black text-gray-300 rounded p-3 text-sm font-mono overflow-y-auto border border-gray-600">
+                        <pre id="run-output" class="whitespace-pre-wrap">Output will appear here...</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 
     <!-- Docker Compose Modal -->
@@ -94,6 +112,9 @@
         const cancelComposeBtn = document.getElementById('cancel-compose-btn');
         const deployComposeSubmitBtn = document.getElementById('deploy-compose-submit-btn');
         const composeContent = document.getElementById('compose-content');
+        const dockerRunCommand = document.getElementById('docker-run-command');
+        const executeRunBtn = document.getElementById('execute-run-btn');
+        const runOutput = document.getElementById('run-output');
 
         // --- STATE ---
         let containers = [];
@@ -169,6 +190,37 @@
             } catch (error) {
                 console.error('Error deploying Docker Compose:', error);
                 NemOS.feedback.showToast(`Deploy failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function executeDockerRun() {
+            const command = dockerRunCommand.value.trim();
+            if (!command) {
+                NemOS.feedback.showToast('Docker run command cannot be empty.', 'error');
+                return;
+            }
+
+            runOutput.textContent = 'Running command...';
+
+            try {
+                const response = await fetch(`${backendApiUrl}/run`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || `Server responded with ${response.status}`);
+                }
+                
+                runOutput.textContent = result.output;
+                NemOS.feedback.showToast(result.message, 'success');
+            } catch (error) {
+                console.error('Error executing docker run:', error);
+                runOutput.textContent = `Error: ${error.message}`;
+                NemOS.feedback.showToast(`Execution failed: ${error.message}`, 'error');
             }
         }
 
@@ -279,7 +331,10 @@
             });
 
             deployComposeSubmitBtn.addEventListener('click', deployCompose);
+            executeRunBtn.addEventListener('click', executeDockerRun);
         }
+
+        attachEventListeners(); // Initial call to attach listeners for static elements
     </script>
 
 </body>
