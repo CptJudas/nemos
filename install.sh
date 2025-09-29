@@ -14,7 +14,7 @@ fi
 echo "--- Installing build dependencies ---"
 sudo apt-get update
 sudo apt-get install -y build-essential python3-pip g++ make
-sudo python3 -m pip install setuptools
+sudo python3 -m pip install setuptools --break-system-packages
 
 echo "--- Installing backend dependencies ---"
 (cd backend && npm cache clean --force && npm install --python=python3)
