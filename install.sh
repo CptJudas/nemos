@@ -11,6 +11,10 @@ else
     echo "npm is already installed."
 fi
 
+echo "--- Installing build dependencies ---"
+sudo apt-get update
+sudo apt-get install -y build-essential python3-distutils
+
 echo "--- Installing backend dependencies ---"
 (cd backend && npm install)
 
